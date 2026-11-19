@@ -1,0 +1,12 @@
+# Добавьте секцию выбранного хостинга в ~/.codex/config.toml.
+[mcp_servers.render]
+url = "https://mcp.render.com/mcp"
+
+[mcp_servers.render.oauth]
+client_id = "codex"
+callback_url = "http://127.0.0.1/callback"
+
+# Использует сессию «railway login» и инструменты локального MCP-сервера.
+[mcp_servers.railway]
+command = "railway"
+args = ["mcp", "local"]

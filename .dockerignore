@@ -1,0 +1,7 @@
+.git
+node_modules
+frontend/dist
+api/generated
+calendar.sqlite*
+playwright-report
+test-results
