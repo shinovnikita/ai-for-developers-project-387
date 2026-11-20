@@ -1,0 +1,13 @@
+[tools]
+node = "24.22.3"
+
+[tasks.check]
+description = "Generate the API client and run lint, type checking, HTTP and browser tests"
+run = [
+  "npm run generate:openapi",
+  "npm run generate:sdk",
+  "npm run lint",
+  "npm run typecheck",
+  "npm test",
+  "npm exec -- playwright test --reporter=list",
+]

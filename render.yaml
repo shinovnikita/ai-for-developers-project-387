@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: call-calendar-387
+    runtime: docker
+    plan: free
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health

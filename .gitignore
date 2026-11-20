@@ -1,0 +1,6 @@
+node_modules/
+dist/
+/api/generated/
+/calendar.sqlite*
+/test-results/
+/playwright-report/
