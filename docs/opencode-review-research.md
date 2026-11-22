@@ -110,3 +110,34 @@ App token подходит для push, после которого CI запу�
 Предлагаемый CAS-протокол: прочитать ledger commit `C` → проверить лимит → создать уникальный commit `N` с единственным parent `C`, новым состоянием и reservation ID → обновить ledger ref на `N` только с `force: false`. Два конкурирующих кандидата от `C` будут sibling commits; после победы одного второй не является fast-forward и должен перечитать журнал. Это вывод из документированных параметров `parents` и гарантий fast-forward, а не отдельная транзакционная функция API. При timeout нельзя начинать модель на основании неизвестного результата: нужно найти своё reservation ID в актуальной истории или отказать безопасно. [Создание commit с parents](https://docs.github.com/en/rest/git/commits?apiVersion=2022-11-28#create-a-commit), [обновление ref без force](https://docs.github.com/en/rest/git/refs?apiVersion=2022-11-28#update-a-reference).
 
 Бюджет должен учитывать запуск CLI целиком, включая возможные служебные вызовы и повторы, а не только финальный ответ. Определение цены, размера резерва, общего лимита и правил возврата резерва остаётся политикой проекта; исследованные API сами этих правил не предоставляют.
+
+## Проверка кандидата и происхождение результата
+
+Вызов `git commit` wrapper не обеспечивает правило проекта «`mise run check`
+перед commit». Поэтому исправления проекта проходят собственные jobs:
+предложение → изолированная проверка окончательного кандидата → publisher.
+Код кандидата выполняется без секретов; publisher получает только данные и
+не исполняет его. Это архитектура проекта, а не встроенная гарантия OpenCode.
+
+GitHub Artifact API возвращает ID и SHA-256 digest артефакта; Job API позволяет
+прочитать jobs и steps конкретного run attempt. В проекте эти метаданные
+проверяются вместе с доверенным workflow SHA, outputs ожидаемых jobs,
+фактическими байтами архива и независимым восстановлением полного кандидата
+из исходного HEAD и предложения. Самозаявленный хеш из JSON доказательством
+происхождения не является. Read-доступ Actions API остаётся у `GITHUB_TOKEN`;
+App-токен используется отдельно только для Git push и комментария. [GitHub Artifact API](https://docs.github.com/en/rest/actions/artifacts#get-an-artifact),
+[GitHub jobs конкретного attempt](https://docs.github.com/en/rest/actions/workflow-jobs#list-jobs-for-a-workflow-run-attempt).
+
+## Доставка ревью Release Please
+
+Политика read-only допускает подходящий release PR, политика исправлений
+запрещает `release-please--*`. Доставка отдельно зависит от credentials:
+текущий workflow выбирает `RELEASE_PLEASE_TOKEN || github.token`. Успешный
+`gh secret list` при подготовке PR не обнаружил `RELEASE_PLEASE_TOKEN`, поэтому
+фактически используется fallback. PAT/App позволяет автоматическую доставку
+PR-событий; fallback `GITHUB_TOKEN` требует
+approval для PR `opened/synchronize/reopened` и не запускает push-workflow.
+После merge нужен настоящий update открытого release PR #13 и проверка
+request → worker с полным live head SHA; одна policy-фикстура этого не доказывает.
+[GitHub: запуск из другого workflow](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow),
+[Release Please: другие Actions на release PR](https://github.com/googleapis/release-please-action/tree/45996ed1f6d02564a971a2fa1b5860e934307cf7#other-actions-on-release-please-prs).

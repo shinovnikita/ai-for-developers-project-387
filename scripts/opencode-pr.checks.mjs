@@ -241,7 +241,7 @@ test('workflow budget gate precedes setup/model, and only the permitted model st
     assert.equal(model.env.OPENAI_API_KEY, '${{ secrets.OPENAI_API_KEY }}');
     assert.equal(model.env.GH_TOKEN, undefined);
     const checkout = steps.find(({ uses }) => uses?.startsWith('actions/checkout@'));
-    assert.deepEqual(checkout.with, { ref: 'refs/heads/main', 'persist-credentials': false });
+    assert.deepEqual(checkout.with, { ref: job === manual.jobs['pr-fix'] ? '${{ github.workflow_sha }}' : 'refs/heads/main', 'persist-credentials': false });
     assert.doesNotMatch(JSON.stringify(job), /ready-for-agent|ready-for-human/);
   }
 });
@@ -356,6 +356,59 @@ test('actual forwarded review preflight validates source run and rejects stale, 
   });
 });
 
+test('actual forwarded Release Please PR is eligible for independent review but not inline correction', () => {
+  forwardedFixture('review', (source, prepare) => {
+    source.pr.head.ref = 'release-please--branches--main--components--call-calendar';
+    const accepted = prepare();
+    assert.equal(accepted.status, 0, accepted.stderr);
+    assert.equal(accepted.output, `allowed=false\nallowed=true\npr=42\nsha=${sha}\nbranch=${source.pr.head.ref}\nkind=review\n`);
+  });
+  forwardedFixture('fix', (source, prepare) => {
+    source.pr.head.ref = 'release-please--branches--main--components--call-calendar';
+    const rejected = prepare();
+    assert.equal(rejected.status, 1);
+    assert.equal(rejected.output, 'allowed=false\n');
+  });
+});
+
+test('release review wait and publication preserve review policy and the exact checked head SHA', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'release-review-fixture-'));
+  try {
+    const loader = join(directory, 'rest-fixture.mjs');
+    const responsePath = join(directory, 'pr.json');
+    const publication = join(directory, 'review.json');
+    writeFileSync(loader, `import {readFileSync,writeFileSync} from 'node:fs';
+globalThis.fetch=async(url,options={})=>{
+ if(url.endsWith('/pulls/42'))return {ok:true,json:async()=>JSON.parse(readFileSync(process.env.FIXTURE_PR,'utf8'))};
+ if(url.includes('/check-runs?'))return {ok:true,json:async()=>({check_runs:[{name:'check',status:'completed'},{name:'browser-evidence',status:'completed'}]})};
+ if(url.endsWith('/pulls/42/reviews')&&options.method==='POST'){writeFileSync(process.env.FIXTURE_PUBLICATION,options.body);return {ok:true,json:async()=>({id:1})};}
+ throw Error('Unexpected fixture URL: '+url);
+};\n`);
+    const release = pr(); release.head.ref = 'release-please--branches--main--components--call-calendar';
+    writeFileSync(responsePath, JSON.stringify(release));
+    const waitStep = review.jobs.review.steps.find(({ name }) => name === 'Wait for CI of this head SHA');
+    assert.equal(waitStep.env.SESSION_KIND, 'review');
+    const env = { PATH: process.env.PATH, GH_TOKEN: 'fixture-no-real-token', PR_NUMBER: '42', HEAD_SHA: sha,
+      HEAD_BRANCH: release.head.ref, SESSION_KIND: waitStep.env.SESSION_KIND, SESSION_DIR: directory,
+      FIXTURE_PR: responsePath, FIXTURE_PUBLICATION: publication,
+      GITHUB_SERVER_URL: 'https://github.com', GITHUB_RUN_ID: '700' };
+    const waited = spawnSync(process.execPath, ['--import', loader, 'scripts/opencode-pr.mjs', 'wait'], { env, encoding: 'utf8' });
+    assert.equal(waited.status, 0, waited.stderr);
+    writeFileSync(join(directory, 'meta.json'), JSON.stringify({ pr: 42, sha, branch: release.head.ref, kind: 'review' }));
+    writeFileSync(join(directory, 'answer.txt'), 'Fixture independent read-only review; no model invoked.');
+    const published = spawnSync(process.execPath, ['--import', loader, 'scripts/opencode-pr.mjs', 'publish'], { env, encoding: 'utf8' });
+    assert.equal(published.status, 0, published.stderr);
+    const result = JSON.parse(readFileSync(publication, 'utf8'));
+    assert.equal(result.event, 'COMMENT'); assert.equal(result.commit_id, sha);
+    assert.ok(result.body.includes(`checked head SHA: ${sha}`));
+    rmSync(publication);
+    release.head.sha = newer; writeFileSync(responsePath, JSON.stringify(release));
+    const stale = spawnSync(process.execPath, ['--import', loader, 'scripts/opencode-pr.mjs', 'publish'], { env, encoding: 'utf8' });
+    assert.equal(stale.status, 1);
+    assert.equal(existsSync(publication), false);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
 test('actual inline forwarding verifies bounded ZIP identifiers against live REST comment and current PR', () => {
   forwardedFixture('fix', (source, prepare) => {
     source.pr.head.sha = newer;
@@ -392,13 +445,14 @@ test('actual inline forwarding verifies bounded ZIP identifiers against live RES
 
 test('publication is tied to reviewed SHA and explicit non-force destination with hooks disabled', () => {
   const source = readFileSync('scripts/opencode-pr.mjs', 'utf8');
+  const publisher = readFileSync('scripts/opencode-candidate.mjs', 'utf8');
   assert.match(source, /commit_id: meta\.sha/);
   assert.match(source, /Independent AI review — checked head SHA: \$\{meta\.sha\}/);
-  assert.match(source, /git\(\['branch', '--show-current'\], work\)\.trim\(\) !== meta\.branch/);
-  assert.match(source, /git\(\['rev-parse', 'HEAD\^'\], work\)\.trim\(\) !== meta\.sha/);
-  assert.match(source, /authenticatedGit\(\['ls-remote', 'origin', `refs\/heads\/\$\{meta\.branch\}`\]/);
-  assert.match(source, /authenticatedGit\(\['push', 'origin', `HEAD:refs\/heads\/\$\{meta\.branch\}`\]/);
-  assert.doesNotMatch(source, /['"]--force(?:-with-lease)?['"]/);
-  assert.match(source, /core\.hooksPath=\/dev\/null/);
-  assert.match(source, /git\(\['add', '--',/);
+  assert.match(publisher, /git\(\['branch', '--show-current'\], work\)\.trim\(\) === proposal\.meta\.branch/);
+  assert.match(publisher, /git\(\['rev-parse', 'HEAD\^'\], work\)\.trim\(\) === proposal\.meta\.sha/);
+  assert.match(publisher, /authenticatedGit\(\['ls-remote', 'origin', `refs\/heads\/\$\{proposal\.meta\.branch\}`\]/);
+  assert.match(publisher, /authenticatedGit\(\['push', 'origin', `HEAD:refs\/heads\/\$\{proposal\.meta\.branch\}`\]/);
+  assert.doesNotMatch(publisher, /['"]--force(?:-with-lease)?['"]/);
+  assert.match(publisher, /core\.hooksPath=\/dev\/null/);
+  assert.match(publisher, /git\(\['add', '--',/);
 });

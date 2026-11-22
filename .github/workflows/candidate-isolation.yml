@@ -1,0 +1,46 @@
+name: Candidate isolation smoke
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-isolation-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact PR head without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Set up mise
+        uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        with:
+          version: '2026.11.0'
+          cache: false
+
+      - name: Exercise real isolated generation and checks without a model
+        run: |
+          export MISE_BINARY="$(command -v mise)"
+          node scripts/opencode-candidate.mjs smoke
+        env:
+          CANDIDATE_DIR: ${{ runner.temp }}/candidate-smoke
+          TRUSTED_SHA: ${{ github.workflow_sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+
+      - name: Upload isolation smoke evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: candidate-smoke-${{ github.event.pull_request.head.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/candidate-smoke/checked.json
+            ${{ runner.temp }}/candidate-smoke/candidate-check.log
+          if-no-files-found: warn
+          retention-days: 14

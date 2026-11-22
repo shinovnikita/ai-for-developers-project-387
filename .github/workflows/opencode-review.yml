@@ -24,6 +24,7 @@ jobs:
     permissions:
       contents: write # atomic reservation in the state branch, never PR execution
       pull-requests: write # COMMENT review pinned to commit_id
+      issues: read # original request, specification, tickets and human approval
       checks: read # evidence for head SHA
       statuses: read
       actions: read # CI and browser artifact links
@@ -59,6 +60,7 @@ jobs:
           PR_NUMBER: ${{ steps.context.outputs.pr }}
           HEAD_SHA: ${{ steps.context.outputs.sha }}
           HEAD_BRANCH: ${{ steps.context.outputs.branch }}
+          SESSION_KIND: review
 
       - name: Collect data without executing PR code
         if: steps.context.outputs.allowed == 'true'

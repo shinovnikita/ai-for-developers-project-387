@@ -7,12 +7,12 @@ import { assertPullRequest, classifyEvent, REPOSITORY, SHA } from './opencode-pr
 
 const root = process.cwd();
 const digest = (text) => createHash('sha256').update(text).digest('hex');
-function git(args, cwd = root) {
+export function git(args, cwd = root) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
   if (result.status !== 0) throw new Error(`git ${args[0]} failed: ${result.stderr}`);
   return result.stdout;
 }
-async function api(path, options = {}) {
+export async function api(path, options = {}) {
   const response = await fetch(`https://api.github.com/repos/${REPOSITORY}/${path}`, {
     ...options,
     headers: { Authorization: `Bearer ${process.env.GH_TOKEN}`, Accept: 'application/vnd.github+json',
@@ -36,10 +36,11 @@ function output(values) {
   }
 }
 function metadata() {
-  return { pr: Number(process.env.PR_NUMBER), sha: process.env.HEAD_SHA, branch: process.env.HEAD_BRANCH };
+  return { pr: Number(process.env.PR_NUMBER), sha: process.env.HEAD_SHA, branch: process.env.HEAD_BRANCH,
+    kind: process.env.SESSION_KIND };
 }
-async function current(meta = metadata()) {
-  return assertPullRequest(await api(`pulls/${meta.pr}`), meta);
+export async function current(meta = metadata()) {
+  return assertPullRequest(await api(`pulls/${meta.pr}`), meta, meta.kind);
 }
 export function buildPrompt({ kind, meta, review, context }) {
   return `You are a fresh independent ${kind === 'review' ? 'reviewer' : 'PR correction agent'}.
@@ -71,7 +72,7 @@ async function prepare() {
     console.log(`Filtered: ${decision.reason ?? 'ordinary issue handled separately'}`);
     return;
   }
-  const pr = assertPullRequest(await api(`pulls/${decision.pr}`));
+  const pr = assertPullRequest(await api(`pulls/${decision.pr}`), {}, decision.kind);
   if (decision.kind === 'review' && pr.draft) {
     console.log('Filtered draft PR; no review session reserved');
     return;
@@ -283,41 +284,7 @@ async function publish() {
       commit_id: meta.sha, body: `Independent AI review — checked head SHA: ${meta.sha}\n\n${answer}\n\n[Run log](${log})` }) });
     return;
   }
-  const result = JSON.parse(answer);
-  if (!Array.isArray(result.edits) || result.edits.length > 50 || typeof result.summary !== 'string') {
-    throw new Error('Invalid correction result');
-  }
-  result.edits.forEach(validateEdit);
-  const work = join(directory, 'checkout');
-  const token = process.env.GH_TOKEN;
-  // App auth lives only in this deterministic publish step, never in model tools.
-  const header = `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`;
-  const args = ['-c', `http.https://github.com/.extraheader=${header}`];
-  // Spawn errors must not print the credential-bearing arguments.
-  function authenticatedGit(parameters, cwd = root) {
-    const call = spawnSync('git', [...args, ...parameters], { cwd, encoding: 'utf8' });
-    if (call.status !== 0) throw new Error(`Authenticated git ${parameters[0]} failed (details suppressed)`);
-    return call.stdout;
-  }
-  authenticatedGit(['clone', '--no-checkout', `https://github.com/${REPOSITORY}.git`, work]);
-  git(['checkout', '-b', meta.branch, meta.sha], work);
-  for (const edit of result.edits) applyEdit(work, edit);
-  if (result.edits.length) {
-    git(['add', '--', ...result.edits.map(({ path }) => path)], work);
-    git(['-c', 'user.name=opencode-agent[bot]', '-c', 'user.email=opencode-agent[bot]@users.noreply.github.com',
-      '-c', 'core.hooksPath=/dev/null', 'commit', '-m', `fix: address PR review feedback\n\nRefs #4`], work);
-    await current(meta);
-    if (git(['remote', 'get-url', 'origin'], work).trim() !== `https://github.com/${REPOSITORY}.git`
-      || git(['branch', '--show-current'], work).trim() !== meta.branch
-      || git(['rev-parse', 'HEAD^'], work).trim() !== meta.sha
-      || authenticatedGit(['ls-remote', 'origin', `refs/heads/${meta.branch}`], work).split(/\s/)[0] !== meta.sha) {
-      throw new Error('Repository, branch or remote HEAD changed before push');
-    }
-    // Explicit destination, no force/lease: a racing human commit rejects push.
-    authenticatedGit(['push', 'origin', `HEAD:refs/heads/${meta.branch}`], work);
-  }
-  await api(`issues/${meta.pr}/comments`, { method: 'POST', body: JSON.stringify({
-    body: `PR correction session based on ${meta.sha}\n\n${result.summary}\n\n[Run log](${log})` }) });
+  throw new Error('Corrections require the isolated candidate-check and verified publisher pipeline');
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

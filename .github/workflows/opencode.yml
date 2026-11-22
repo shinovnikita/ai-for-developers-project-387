@@ -121,6 +121,7 @@ jobs:
             ${{ github.event.comment.body }}
 
   pr-fix:
+    name: pr-fix
     if: >-
       github.repository == 'shinovnikita/ai-for-developers-project-387' &&
       ((github.event_name == 'issue_comment' && github.event.issue.pull_request &&
@@ -140,15 +141,18 @@ jobs:
     permissions:
       contents: write # budget ledger; push uses separately exchanged App token
       pull-requests: read
+      issues: read # linked specifications, tickets and human approval
       checks: read
       statuses: read
       actions: read
-      id-token: write # existing App/OIDC authorization, after model finishes
+    outputs:
+      proposal-id: ${{ steps.proposal.outputs.artifact-id }}
+      proposal-digest: ${{ steps.proposal.outputs.artifact-digest }}
     steps:
       - name: Check out trusted main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: refs/heads/main
+          ref: ${{ github.workflow_sha }}
           persist-credentials: false
 
       - name: Check installed infrastructure
@@ -206,26 +210,23 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SESSION_DIR: ${{ runner.temp }}/pr-session
 
-      - name: Exchange App OIDC without a model
-        id: app
+      - name: Prepare correction proposal
         if: steps.budget.outputs.allowed == 'true'
-        run: node scripts/opencode-app-token.mjs
-
-      - name: Apply and push to the verified PR branch
-        if: steps.budget.outputs.allowed == 'true'
-        run: node scripts/opencode-pr.mjs publish
+        run: node scripts/opencode-candidate.mjs propose
         env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           SESSION_DIR: ${{ runner.temp }}/pr-session
+          TRUSTED_SHA: ${{ github.workflow_sha }}
 
-      - name: Revoke temporary App token
-        if: always() && steps.app.outputs.token != ''
-        run: |
-          curl --silent --show-error --fail-with-body -X DELETE \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            https://api.github.com/installation/token
-        env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
+      - name: Upload correction proposal
+        id: proposal
+        if: steps.budget.outputs.allowed == 'true'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: correction-proposal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pr-session/proposal.json
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Retain budget decision and session evidence
         if: always() && steps.context.outputs.allowed == 'true'
@@ -240,3 +241,107 @@ jobs:
             ${{ runner.temp }}/pr-session/session.stderr
           if-no-files-found: warn
           retention-days: 14
+
+  candidate-check:
+    name: candidate-check
+    needs: pr-fix
+    if: needs.pr-fix.outputs.proposal-id != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read # verify producer job and immutable artifact provenance
+    outputs:
+      checked-id: ${{ steps.checked.outputs.artifact-id }}
+      checked-digest: ${{ steps.checked.outputs.artifact-digest }}
+    steps:
+      - name: Check out trusted workflow source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Set up trusted mise
+        uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        with:
+          version: '2026.11.0'
+          cache: false
+
+      - name: Generate and check candidate in isolated containers
+        run: |
+          export MISE_BINARY="$(command -v mise)"
+          node scripts/opencode-candidate.mjs check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRUSTED_SHA: ${{ github.workflow_sha }}
+          PROPOSAL_ID: ${{ needs.pr-fix.outputs.proposal-id }}
+          PROPOSAL_DIGEST: ${{ needs.pr-fix.outputs.proposal-digest }}
+          CANDIDATE_DIR: ${{ runner.temp }}/candidate
+
+      - name: Upload checked candidate
+        id: checked
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: correction-checked-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/candidate/checked.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Retain isolated check log
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: correction-log-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/candidate/candidate-check.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  publish-fix:
+    name: publish-fix
+    needs: [pr-fix, candidate-check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read # verify explicit issue links for commit Refs
+      actions: read
+      id-token: write # App exchange only after candidate proof validation
+    env:
+      TRUSTED_SHA: ${{ github.workflow_sha }}
+      PROPOSAL_ID: ${{ needs.pr-fix.outputs.proposal-id }}
+      PROPOSAL_DIGEST: ${{ needs.pr-fix.outputs.proposal-digest }}
+      CHECKED_ID: ${{ needs.candidate-check.outputs.checked-id }}
+      CHECKED_DIGEST: ${{ needs.candidate-check.outputs.checked-digest }}
+    steps:
+      - name: Check out trusted publisher
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Verify successful check and complete candidate provenance
+        run: node scripts/opencode-candidate.mjs verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_DIR: ${{ runner.temp }}/verified-candidate
+
+      - name: Exchange App OIDC without a model
+        id: app
+        run: node scripts/opencode-app-token.mjs
+
+      - name: Commit verified candidate and push to the original PR branch
+        run: node scripts/opencode-candidate.mjs publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP_TOKEN: ${{ steps.app.outputs.token }}
+          CANDIDATE_DIR: ${{ runner.temp }}/verified-candidate
+
+      - name: Revoke temporary App token
+        if: always() && steps.app.outputs.token != ''
+        run: |
+          curl --silent --show-error --fail-with-body -X DELETE \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            https://api.github.com/installation/token
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}

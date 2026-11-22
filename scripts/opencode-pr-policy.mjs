@@ -24,11 +24,13 @@ export function classifyEvent(event, name) {
   return { allowed: true, kind: pr ? 'fix' : 'issue', pr: pr || undefined };
 }
 
-export function assertPullRequest(pr, expected = {}) {
+export function assertPullRequest(pr, expected = {}, kind = 'fix') {
+  if (!['review', 'fix'].includes(kind)) throw new Error('Unknown PR session kind');
   if (pr.state !== 'open' || pr.base?.repo?.full_name !== REPOSITORY
     || pr.base.ref !== 'main' || pr.head?.repo?.full_name !== REPOSITORY
     || !SHA.test(pr.head.sha) || !pr.head.ref || pr.head.ref === 'main'
-    || pr.head.ref === 'opencode-budget' || pr.head.ref.startsWith('release-please--')) {
+    || pr.head.ref === 'opencode-budget'
+    || (kind === 'fix' && pr.head.ref.startsWith('release-please--'))) {
     throw new Error('PR must be open, same-repository, target main, and use a non-protected work branch');
   }
   if (expected.sha && pr.head.sha !== expected.sha) throw new Error('Stale PR HEAD');
