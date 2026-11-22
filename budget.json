@@ -73,6 +73,15 @@
       "attempt": 1,
       "log": "https://github.com/shinovnikita/ai-for-developers-project-387/actions/runs/45079104622/attempts/1",
       "reservedAt": "2026-11-22T22:42:15.267Z"
+    },
+    {
+      "pr": 18,
+      "sha": "ec464153d8585dd8cd97a35651bc0efd0f7dc6e5",
+      "kind": "review",
+      "runId": "45084505888",
+      "attempt": 1,
+      "log": "https://github.com/shinovnikita/ai-for-developers-project-387/actions/runs/45084505888/attempts/1",
+      "reservedAt": "2026-11-22T23:41:37.080Z"
     }
   ]
 }
