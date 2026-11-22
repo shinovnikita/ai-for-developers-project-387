@@ -88,7 +88,7 @@ test('trusted runtime, auth and concurrency match the manual workflow', () => {
   assert.ok(agent.env.PROMPT.trim());
   assert.doesNotMatch(agent.env.PROMPT, /\$\{\{/);
   // Readiness filtering is exclusive to auto-triage; manual commands stay usable.
-  assert.deepEqual(manual.on, { issue_comment: { types: ['created'] } });
+  assert.deepEqual(manual.on, { issue_comment: { types: ['created'] }, workflow_run: { workflows: ['OpenCode inline request'], types: ['completed'] } });
   assert.doesNotMatch(JSON.stringify(manual), /ready-for-agent|ready-for-human/);
   assert.equal(manualSteps.find(({ name }) => name === 'Run OpenCode').env.MENTIONS, '/oc,/opencode');
 });

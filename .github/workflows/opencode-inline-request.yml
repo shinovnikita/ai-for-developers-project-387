@@ -1,0 +1,52 @@
+name: OpenCode inline request
+
+on:
+  pull_request_review_comment:
+    types: [created]
+
+# No checkout, App/OIDC, dependency installation or model in this PR workflow.
+permissions:
+  contents: read
+
+jobs:
+  request:
+    if: >-
+      github.repository == 'shinovnikita/ai-for-developers-project-387' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.comment.user.type == 'User' &&
+      github.event.comment.user.login == 'shinovnikita'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record only an explicit trusted inline command
+        id: command
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+          const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+          const allowed = event.action === 'created'
+            && event.repository?.full_name === 'shinovnikita/ai-for-developers-project-387'
+            && event.pull_request?.head?.repo?.full_name === event.repository.full_name
+            && event.comment?.user?.login === 'shinovnikita'
+            && event.comment.user.type === 'User'
+            && /(?:^|\s)\/(?:oc|opencode)(?=\s|$)/i.test(event.comment.body ?? '')
+            && Number.isSafeInteger(event.comment.id)
+            && Number.isSafeInteger(event.pull_request.number);
+          appendFileSync(process.env.GITHUB_OUTPUT, `allowed=${allowed}\n`);
+          if (allowed) {
+            mkdirSync('request', { recursive: true });
+            writeFileSync('request/inline.json', JSON.stringify({
+              commentId: event.comment.id, pr: event.pull_request.number,
+              runId: process.env.GITHUB_RUN_ID, attempt: process.env.GITHUB_RUN_ATTEMPT,
+            }));
+          }
+          NODE
+
+      - name: Upload command identifier as untrusted data
+        if: steps.command.outputs.allowed == 'true'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: inline-command-${{ github.run_id }}-${{ github.run_attempt }}
+          path: request/inline.json
+          if-no-files-found: error
+          retention-days: 7

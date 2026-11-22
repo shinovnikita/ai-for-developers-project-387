@@ -1,0 +1,119 @@
+name: Independent PR review
+
+on:
+  workflow_run:
+    workflows: [Independent PR review request]
+    types: [completed]
+
+permissions: {}
+
+# This group never matches the implementation or correction workflow.
+concurrency:
+  group: opencode-review-${{ github.repository }}-${{ github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: >-
+      github.repository == 'shinovnikita/ai-for-developers-project-387' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # atomic reservation in the state branch, never PR execution
+      pull-requests: write # COMMENT review pinned to commit_id
+      checks: read # evidence for head SHA
+      statuses: read
+      actions: read # CI and browser artifact links
+    steps:
+      - name: Check out trusted main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/heads/main
+          persist-credentials: false
+
+      - name: Check installed infrastructure
+        id: installed
+        run: |
+          if test -f scripts/opencode-pr.mjs; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo 'Infrastructure is not installed in main; no review or correction performed.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Validate command and live PR
+        id: context
+        if: steps.installed.outputs.ready == 'true'
+        run: node scripts/opencode-pr.mjs prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Wait for CI of this head SHA
+        if: steps.context.outputs.allowed == 'true'
+        run: node scripts/opencode-pr.mjs wait
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.context.outputs.pr }}
+          HEAD_SHA: ${{ steps.context.outputs.sha }}
+          HEAD_BRANCH: ${{ steps.context.outputs.branch }}
+
+      - name: Collect data without executing PR code
+        if: steps.context.outputs.allowed == 'true'
+        run: node scripts/opencode-pr.mjs context
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.context.outputs.pr }}
+          HEAD_SHA: ${{ steps.context.outputs.sha }}
+          HEAD_BRANCH: ${{ steps.context.outputs.branch }}
+          SESSION_KIND: review
+          SESSION_DIR: ${{ runner.temp }}/pr-session
+
+      - name: Reserve a session before any model call
+        id: budget
+        if: steps.context.outputs.allowed == 'true'
+        run: >-
+          node scripts/opencode-budget.mjs
+          --pr "$PR_NUMBER" --sha "$HEAD_SHA" --kind "$SESSION_KIND"
+          --output "$RUNNER_TEMP/budget-decision.json"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.context.outputs.pr }}
+          HEAD_SHA: ${{ steps.context.outputs.sha }}
+          SESSION_KIND: review
+
+      - name: Install pinned OpenCode
+        if: steps.budget.outputs.allowed == 'true'
+        run: |
+          npm install --prefix "$RUNNER_TEMP/opencode" --no-package-lock --no-save opencode-ai@1.19.6
+          echo "$RUNNER_TEMP/opencode/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: Run isolated fresh session
+        if: steps.budget.outputs.allowed == 'true'
+        run: node scripts/opencode-pr.mjs model
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SESSION_DIR: ${{ runner.temp }}/pr-session
+
+      - name: Publish review for the verified SHA
+        if: steps.budget.outputs.allowed == 'true'
+        run: node scripts/opencode-pr.mjs publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SESSION_DIR: ${{ runner.temp }}/pr-session
+
+      - name: Retain budget decision and session evidence
+        if: always() && steps.context.outputs.allowed == 'true'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: review-pr-${{ steps.context.outputs.pr }}-${{ steps.context.outputs.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/budget-decision.json
+            ${{ runner.temp }}/pr-session/meta.json
+            ${{ runner.temp }}/pr-session/answer.txt
+            ${{ runner.temp }}/pr-session/session.jsonl
+            ${{ runner.temp }}/pr-session/session.stderr
+          if-no-files-found: warn
+          retention-days: 14

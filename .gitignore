@@ -4,3 +4,4 @@ dist/
 /calendar.sqlite*
 /test-results/
 /playwright-report/
+/browser-evidence/

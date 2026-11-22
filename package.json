@@ -12,7 +12,7 @@
     "generate:sdk": "openapi-ts -i api/generated/openapi.yaml -o api/generated/sdk -p @hey-api/client-fetch @hey-api/typescript @hey-api/sdk fastify",
     "lint": "oxlint --deny-warnings --react-plugin --vitest-plugin server frontend",
     "test": "vitest run",
-    "test:workflows": "node --test scripts/opencode-triage.checks.mjs",
+    "test:workflows": "node --test scripts/*.checks.mjs",
     "test:browser": "npm run generate:openapi && npm run generate:sdk && playwright test",
     "typecheck": "tsc --noEmit && tsc -b frontend"
   },
