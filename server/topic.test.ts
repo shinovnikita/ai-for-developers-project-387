@@ -53,6 +53,14 @@ test('saved attempt compares normalized topic before validation, preserves paylo
     const replay = await calendar.post('/api/meetings', { ...input, topic: ' \tПлан перехода\u00a0 ' });
     expect(replay.status).toBe(200);
     expect(await replay.json()).toEqual(confirmation);
+
+    const mismatch = await calendar.post('/api/meetings', { ...input, topic: 'Другая тема' });
+    expect(mismatch.status).toBe(409);
+    expect(await mismatch.json()).toEqual({ code: 'ATTEMPT_PAYLOAD_MISMATCH', message: 'Данные попытки записи изменились' });
+
+    const restored = await calendar.post('/api/meetings', input);
+    expect(restored.status).toBe(200);
+    expect(await restored.json()).toEqual(confirmation);
   }
   calendar.setNow('2026-11-18T05:00:00Z');
   expect((await calendar.upcoming()).meetings).toEqual([confirmation.meeting]);
