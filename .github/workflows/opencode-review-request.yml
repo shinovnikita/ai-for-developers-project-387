@@ -1,0 +1,33 @@
+name: Independent PR review request
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# This workflow comes from the PR. It is only an unprivileged event signal;
+# the worker uses its own main-branch code and validates live GitHub metadata.
+permissions:
+  contents: read
+
+jobs:
+  request:
+    if: >-
+      github.repository == 'shinovnikita/ai-for-developers-project-387' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record review request without executing PR code
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs';
+          const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+          const pr = event.pull_request;
+          if (!Number.isSafeInteger(pr?.number) || !/^[a-f0-9]{40}$/.test(pr?.head?.sha ?? '')) {
+            throw new Error('Invalid PR request metadata');
+          }
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            `Review requested for PR #${pr.number}, pull_request.head.sha ${pr.head.sha}.\n`);
+          NODE

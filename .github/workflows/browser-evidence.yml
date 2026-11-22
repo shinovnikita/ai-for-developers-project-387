@@ -1,0 +1,63 @@
+name: Browser evidence
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# Executes the PR's tests and dependencies, so no model key, OIDC or write token.
+permissions:
+  contents: read
+
+jobs:
+  browser-evidence:
+    name: browser-evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Record and verify PR identity
+        run: node scripts/browser-evidence.mjs prepare
+
+      - name: Set up mise and install tools
+        uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        with:
+          version: '2026.11.0'
+          cache: false
+
+      - name: Install npm dependencies
+        run: mise exec -- npm ci
+
+      - name: Install Chromium and system dependencies
+        run: mise exec -- npm exec -- playwright install --with-deps chromium
+
+      - name: Run browser scenarios with the real server
+        id: browser
+        run: |
+          set -o pipefail
+          mise exec -- npm run test:browser 2>&1 | tee browser-evidence/browser.log
+        env:
+          BROWSER_EVIDENCE: '1'
+
+      - name: Write observed results
+        if: always()
+        run: node scripts/browser-evidence.mjs report
+        env:
+          BROWSER_OUTCOME: ${{ steps.browser.outcome }}
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: browser-pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}-attempt-${{ github.run_attempt }}
+          path: |
+            browser-evidence/
+            playwright-report/
+            test-results/
+          if-no-files-found: error
+          retention-days: 14

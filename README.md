@@ -140,7 +140,7 @@ CALENDAR_SCHEDULE='{"1":[{"startsAt":"10:00","endsAt":"17:00"}]}' mise exec -- n
 mise exec -- npm exec -- playwright install chromium
 ```
 
-Из корня проекта запустите `mise run check`. Эта команда проверяет все workflow через закреплённый actionlint 1.7.12, запускает безопасные фикстуры автотриажа, генерирует OpenAPI и SDK, проверяет код и запускает Vitest и Playwright. GitHub Actions выполняет её при каждом push. После изменения `mise.toml` установите инструменты командой `mise install`.
+Из корня проекта запустите `mise run check`. Эта команда проверяет все workflow через закреплённый actionlint 1.7.12, запускает проверки фильтров, бюджета, исправлений PR и браузерного отчёта, генерирует OpenAPI и SDK, проверяет код и запускает Vitest и Playwright. GitHub Actions выполняет её при каждом push и PR в main, включая изменения документации. После изменения `mise.toml` установите инструменты командой `mise install`.
 
 ```bash
 mise run check
@@ -171,9 +171,25 @@ bash scripts/docker-smoke.sh
 
 Команда собирает образ со сгенерированным SDK и фронтендом, запускает контейнер с `PORT=8080` и проверяет по HTTP `/health`, `/booking` и `/owner` через этот порт. Docker назначает свободный порт на локальной машине. После проверки контейнер удаляется.
 
+## Цикл PR → независимое ревью → исправления
+
+[REVIEW.md](REVIEW.md) задаёт проверяемые критерии, [шаблон PR](.github/pull_request_template.md) — основания, доказательства на SHA, риск и откат. [Описание механизма и контроль после слияния](docs/pr-agent-cycle.md) разделяет локальные фикстуры и реальные интеграционные запуски. [Проверка официальных исходников OpenCode 1.19.6](docs/opencode-review-research.md) объясняет выбор изоляции и OIDC.
+
+- Непривилегированный запрос на `pull_request` запускает независимый reviewer через `workflow_run` из доверенной main; он читает main и снимок проверяемого head без исполнения PR-кода. Каждая сессия новая; модель `openai/gpt-6.1-sol`, variant `medium`.
+- `/oc` и `/opencode` от `shinovnikita/User` работают в обсуждении PR и комментариях к diff. Модель готовит предложение; отдельный `candidate-check` выполняет штатную генерацию и `mise run check` в контейнерах без секретов. Publisher проверяет происхождение run/jobs/attempt, GitHub artifact digest и весь кандидат до commit и push в прежнюю ветку. Боты и fork не получают ключ модели.
+- Строки `Refs #N` берутся только из единственного блока `<!-- opencode-linked-issues: ["полный URL issue"] -->` в описании PR. Repository и существование каждого issue проверяются через API; обычные упоминания и ссылки не учитываются, дубли удаляются. Пустой/отсутствующий блок не создаёт `Refs #4`.
+- Независимый reviewer может читать подходящий PR Release Please; автоматическое исправление `release-please--*` запрещено. Реальную доставку request → worker нужно проверить после merge: при fallback на `GITHUB_TOKEN` request может требовать ручного **Approve workflows to run**.
+- Общий лимит — **6 сессий на PR**, включая review и обе команды. До OpenCode доверенный код резервирует запись в ветке `opencode-budget` через GitHub API и fast-forward; SHA, rerun и отмена счётчик не сбрасывают. Отказ — ненулевой статус и артефакт с причиной, SHA и логом.
+- Отдельный `browser-evidence` проверяет точный `pull_request.head.sha` без ключа модели: настоящий Fastify, SQLite, Vite, основной и соседние сценарии. Артефакт `browser-pr-<PR>-<SHA>-attempt-<N>` содержит отчёт, HTML/JSON/JUnit, trace, снимки и лог. Хранение — 14 дней; перед merge сохраните нужные доказательства.
+- Для main настроены required checks **`check`** (`mise run check`, включая Playwright) и **`browser-evidence`** от GitHub Actions; strict и enforce_admins включены. Ни review, ни Release Please не являются решением о merge.
+
+[Candidate isolation smoke](.github/workflows/candidate-isolation.yml) отдельно проверяет настоящий контейнерный путь генерации и `mise run check` без модели, commit и push. Локально Docker daemon недоступен; фактический результат smoke на head SHA указан в PR. Он не заменяет контроль реальных artifact/job/attempt и App/OIDC-переходов после установки worker в main. При повторе исправления нужен **Re-run all jobs**: повтор только упавших jobs не переиспользует producer предыдущего attempt; новая сессия входит в лимит 6.
+
+Это инфраструктура; тема встречи из #7 будет реализована отдельно в порядке #8 → #9. До попадания скриптов в доверенную main подготовительный PR не выполняет новую модельную сессию: доверенный `workflow_run` ещё не установлен в main; дополнительные bootstrap-проверки также явно отмечают пропуск. После слияния нужен контроль по инструкции, а не интерпретация bootstrap как завершённого ревью.
+
 ## OpenCode в issues
 
-[Workflow OpenCode](.github/workflows/opencode.yml) вызывает установленный GitHub App **OpenCode Agent** по новому комментарию к обычному issue. Событие — `issue_comment`, только `types: [created]`; доверенный автор — `shinovnikita` с типом аккаунта `User`. Комментарии других пользователей, ботов и комментарии к PR пропускаются до шага с ключом модели.
+[Workflow OpenCode](.github/workflows/opencode.yml) вызывает установленный GitHub App **OpenCode Agent** по новому комментарию к обычному issue. Событие — `issue_comment`, только `types: [created]`; доверенный автор — `shinovnikita` с типом аккаунта `User`. Комментарии других пользователей и ботов пропускаются до шага с ключом модели. Команды в PR проходят отдельные jobs `pr-fix` → `candidate-check` → `publish-fix` с общим бюджетом PR, описанным выше.
 
 ```text
 /oc explain this issue
@@ -300,6 +316,8 @@ docs/agents/*, GLOSSARY.md, ADR и реализацию. Верни кратки
 
 - Для встроенного `GITHUB_TOKEN` включите **Allow GitHub Actions to create and approve pull requests** в **Settings → Actions → General → Workflow permissions**. [Настройки GitHub Actions](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#preventing-github-actions-from-creating-or-approving-pull-requests)
 - Чтобы push в ветку release PR запускал проверки CI, добавьте секрет `RELEASE_PLEASE_TOKEN` в **Settings → Secrets and variables → Actions**. Используйте fine-grained personal access token с доступом к этому репозиторию и правом записи в **Contents**, **Issues** и **Pull requests**. [Учётные данные Release Please](https://github.com/googleapis/release-please-action/tree/45996ed1f6d02564a971a2fa1b5860e934307cf7#other-actions-on-release-please-prs)
+
+Workflow выбирает `RELEASE_PLEASE_TOKEN`, если он задан, иначе `github.token`. При подготовке PR список repository secrets успешно проверен: `RELEASE_PLEASE_TOKEN` отсутствует, поэтому сейчас выбран fallback. PAT/App-токен позволяет автоматически доставлять события PR; fallback `GITHUB_TOKEN` не запускает новый push-CI, а PR `opened`/`synchronize`/`reopened` требует **Approve workflows to run**. Наличие разрешённой release-ветки в политике review не доказывает запуск. После установки worker в main проверьте реальное обновление уже открытого PR #13: request, worker, бюджет и полный проверенный SHA; слияние #13 выполняет владелец. [Правила запуска GitHub Actions](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow)
 
 1. Добавьте в `main` изменение с сообщением по Conventional Commits, например `feat: add a meeting type catalog` или `fix: handle an empty catalog`. При squash merge используйте этот формат в сообщении итогового коммита.
 2. Release Please создаст или обновит release PR. Проверьте версию в `package.json` и `package-lock.json` и описание изменений в `CHANGELOG.md`.
