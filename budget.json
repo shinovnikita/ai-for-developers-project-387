@@ -1,5 +1,15 @@
 {
   "schema": 1,
   "repository": "shinovnikita/ai-for-developers-project-387",
-  "reservations": []
+  "reservations": [
+    {
+      "pr": 15,
+      "sha": "a5bc5d669c946dc22338305b19bbf5b6893c5847",
+      "kind": "review",
+      "runId": "45069495639",
+      "attempt": 1,
+      "log": "https://github.com/shinovnikita/ai-for-developers-project-387/actions/runs/45069495639/attempts/1",
+      "reservedAt": "2026-11-22T20:59:36.408Z"
+    }
+  ]
 }
