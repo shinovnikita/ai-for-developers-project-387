@@ -169,6 +169,34 @@ bash scripts/docker-smoke.sh
 
 Команда собирает образ со сгенерированным SDK и фронтендом, запускает контейнер с `PORT=8080` и проверяет по HTTP `/health`, `/booking` и `/owner` через этот порт. Docker назначает свободный порт на локальной машине. После проверки контейнер удаляется.
 
+## OpenCode в issues
+
+[Workflow OpenCode](.github/workflows/opencode.yml) позволяет вызвать установленный GitHub App **OpenCode Agent** комментарием к обычному issue в этом репозитории. Событие — `issue_comment`, только `types: [created]`; разрешённый автор — `shinovnikita` с типом аккаунта `User`. Комментарии других пользователей, ботов и комментарии к PR пропускаются до шага с ключом модели. После слияния workflow в `main` вызов выглядит так:
+
+```text
+/oc explain this issue
+```
+
+Настройка `mentions: /oc,/opencode` разрешает обе команды без учёта регистра. Команда должна быть отдельным словом: перед ней — начало комментария или пробельный символ, после — конец комментария или пробельный символ. Например, `/octopus`, `/oc-extra` и ссылка с `/oc` не запускают агента. Фильтр читает текст из JSON-файла события `GITHUB_EVENT_PATH`; текст комментария не подставляется в shell-команды. OpenCode затем сам читает исходное событие и контекст issue.
+
+Модель — `openai/gpt-6.1-sol`, `variant: medium`. Repository secret `OPENAI_API_KEY` передаётся только в окружение шага **Run OpenCode**. `share: false` отключает публикацию сессии OpenCode. Авторизация GitHub — стандартный обмен OIDC на installation token установленного OpenCode Agent; отдельный PAT и передача `GITHUB_TOKEN` не нужны. У workflow только права `contents: read` и `id-token: write`; запись ответа в issue выполняется с правами GitHub App.
+
+Checkout всегда берёт доверенную ветку `main` с `persist-credentials: false`. Ветки PR и код из fork не загружаются и не запускаются с секретом. Полный checkout включает `AGENTS.md`, настройки `docs/agents/` и скиллы `.agents/skills/*/SKILL.md`; OpenCode поддерживает эти пути без копирования в домашнюю директорию. Перед запуском агента шаг **Verify repository instructions and skills** проверяет наличие файлов, трекер GitHub Issues проекта 387 и команду `mise run check`, а также выводит список скиллов в лог. Подготовка окружения для самих проверок описана в разделах [Установка](#установка) и [Проверки](#проверки).
+
+Лимит job — `timeout-minutes: 20`. Одна concurrency-группа `opencode-${{ github.repository }}` действует для всего workflow в репозитории, с `cancel-in-progress: false`: одновременно работает максимум один агентный job, текущий запуск не отменяется новым. По умолчанию GitHub сохраняет один ожидающий запуск; более новый заменяет предыдущий ожидающий.
+
+Ожидаемый результат — ответ OpenCode Agent в issue и запуск **OpenCode** на вкладке **Actions** с логами выполнения. Для smoke-теста после слияния создайте обычный issue с текстом:
+
+```text
+Прочитай AGENTS.md и все docs/agents/*. Назови активный трекер проекта
+с репозиторием, перечисли доступные скиллы из .agents/skills/ и укажи
+актуальную команду проверок. Только объясни результат, без изменения файлов.
+```
+
+От пользователя `shinovnikita` добавьте комментарий `/oc explain this issue`. Проверьте успешный прогон в Actions и ответ в issue: трекер — GitHub Issues `shinovnikita/ai-for-developers-project-387`, скиллы — из checkout, команда — `mise run check`. До слияния вызов не проверяется: `issue_comment` использует workflow из основной ветки.
+
+Настройки сверены с [официальной документацией GitHub-интеграции OpenCode](https://opencode.ai/docs/github/), [документацией скиллов](https://opencode.ai/docs/skills/) и [action.yml закреплённой версии github-v1.2.28](https://github.com/anomalyco/opencode/blob/17b79f4e0c16dcff200b0417567ed22aeb2d7166/github/action.yml). SHA фиксирует код action; сам action устанавливает актуальную CLI-версию OpenCode через официальный установщик.
+
 ---
 
 <details>

@@ -1,0 +1,79 @@
+name: OpenCode
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  opencode:
+    if: >-
+      github.repository == 'shinovnikita/ai-for-developers-project-387' &&
+      !github.event.issue.pull_request &&
+      github.event.comment.user.type == 'User' &&
+      github.event.comment.user.login == 'shinovnikita'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: opencode-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - name: Check for an OpenCode command
+        id: command
+        # Read untrusted comment text as data, never as shell source.
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs';
+
+          const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+          const allowed = /(?:^|\s)\/(?:oc|opencode)(?=\s|$)/i.test(event.comment.body);
+          appendFileSync(process.env.GITHUB_OUTPUT, `allowed=${allowed}\n`);
+          NODE
+
+      - name: Check out trusted main
+        if: steps.command.outputs.allowed == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/heads/main
+          persist-credentials: false
+
+      - name: Verify repository instructions and skills
+        if: steps.command.outputs.allowed == 'true'
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { existsSync, readFileSync, readdirSync } from 'node:fs';
+
+          for (const file of [
+            'AGENTS.md',
+            'docs/agents/domain.md',
+            'docs/agents/issue-tracker.md',
+            'docs/agents/triage-labels.md',
+            'mise.toml',
+          ]) assert(existsSync(file), `Missing agent context: ${file}`);
+
+          const skills = readdirSync('.agents/skills').filter((name) =>
+            existsSync(`.agents/skills/${name}/SKILL.md`));
+          assert(skills.length > 0, 'No repository skills found');
+          assert(readFileSync('docs/agents/issue-tracker.md', 'utf8')
+            .includes('shinovnikita/ai-for-developers-project-387/issues'));
+          assert(readFileSync('AGENTS.md', 'utf8').includes('mise run check'));
+          assert(readFileSync('mise.toml', 'utf8').includes('[tasks.check]'));
+          console.log(`Available skills (${skills.length}): ${skills.sort().join(', ')}`);
+          console.log('Tracker: GitHub Issues, shinovnikita/ai-for-developers-project-387');
+          console.log('Checks: mise run check (see README.md for runner setup)');
+          NODE
+
+      - name: Run OpenCode
+        if: steps.command.outputs.allowed == 'true'
+        uses: anomalyco/opencode/github@17b79f4e0c16dcff200b0417567ed22aeb2d7166 # github-v1.2.28
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        with:
+          model: openai/gpt-6.1-sol
+          variant: medium
+          mentions: /oc,/opencode
+          share: false
