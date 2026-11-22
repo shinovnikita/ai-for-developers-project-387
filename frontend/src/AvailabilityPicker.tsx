@@ -247,6 +247,7 @@ export function AvailabilityPicker({ meetingTypeId }: { meetingTypeId: string })
             />
             <TextInput
               label="Тема"
+              description="От 1 до 200 символов. Пробелы в начале и конце не учитываются"
               name="topic"
               required
               disabled={submitting}
