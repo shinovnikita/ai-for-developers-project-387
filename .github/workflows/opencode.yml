@@ -67,13 +67,50 @@ jobs:
           console.log('Checks: mise run check (see README.md for runner setup)');
           NODE
 
+      - name: Install OpenCode 1.19.6 and prepare gh
+        if: steps.command.outputs.allowed == 'true'
+        run: |
+          npm install --prefix "$RUNNER_TEMP/opencode" --no-package-lock --no-save opencode-ai@1.19.6
+          echo "$RUNNER_TEMP/opencode/node_modules/.bin" >> "$GITHUB_PATH"
+          echo "OPENCODE_GH_EXECUTABLE=$(command -v gh)" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/opencode-gh"
+          install -m 755 scripts/opencode-gh.mjs "$RUNNER_TEMP/opencode-gh/gh"
+          echo "$RUNNER_TEMP/opencode-gh" >> "$GITHUB_PATH"
+
       - name: Run OpenCode
         if: steps.command.outputs.allowed == 'true'
-        uses: anomalyco/opencode/github@17b79f4e0c16dcff200b0417567ed22aeb2d7166 # github-v1.2.28
+        run: |
+          test "$(opencode --version)" = '1.19.6'
+          opencode github run
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        with:
-          model: openai/gpt-6.1-sol
-          variant: medium
-          mentions: /oc,/opencode
-          share: false
+          # Actions has no permission UI. Keep ordinary tool defaults; reject
+          # the built-in approval guards instead of waiting or auto-approving.
+          OPENCODE_PERMISSION: '{"external_directory":"deny","doom_loop":"deny","question":"deny","read":{"*.env":"deny","*.env.*":"deny","*.env.example":"allow"}}'
+          GH_PROMPT_DISABLED: '1'
+          MODEL: openai/gpt-6.1-sol
+          VARIANT: medium
+          MENTIONS: /oc,/opencode
+          SHARE: 'false'
+          PROMPT: |
+            Выполни запрос из текущего комментария ниже. Прочитай AGENTS.md
+            и указанные в нём инструкции репозитория.
+
+            Используй переданный GitHub-wrapper контекст issue и комментариев.
+            Не читай GITHUB_EVENT_PATH и внешние служебные файлы раннера:
+            необходимые сведения уже есть в контексте. При отказе инструмента
+            продолжай доступными средствами; не пытайся обходить запрет.
+
+            Только во время интервью: опубликуй в итоговом ответе краткий разбор
+            и ровно один следующий вопрос с рекомендуемым вариантом и причиной,
+            затем заверши запуск. Wrapper опубликует ответ комментарием в issue.
+            Продолжение интервью придёт новым комментарием пользователя с /oc.
+            Интерактивные question и ожидание ответа внутри запуска недоступны.
+            Ограничение одного вопроса относится только к интервью: to-spec
+            и to-tickets выполняй полностью по соответствующему скиллу.
+
+            Для операций с GitHub используй gh: окружение Actions передаёт ему
+            временный токен установленного GitHub App. Не выводи учётные данные.
+
+            Текущий комментарий пользователя:
+            ${{ github.event.comment.body }}
