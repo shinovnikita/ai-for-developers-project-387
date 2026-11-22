@@ -52,7 +52,7 @@ export function UpcomingMeetings() {
         <>
           <Text c="dimmed">Время по часовому поясу {upcoming.timeZone}</Text>
           <Table.ScrollContainer minWidth={0}>
-            <Table style={{ tableLayout: 'fixed' }}>
+            <Table style={{ tableLayout: 'fixed', overflowWrap: 'anywhere' }}>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th scope="col" w="40%">Тип встречи</Table.Th>
