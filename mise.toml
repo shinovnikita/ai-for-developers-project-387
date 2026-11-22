@@ -1,9 +1,12 @@
 [tools]
 node = "24.22.3"
+actionlint = "1.7.12"
 
 [tasks.check]
-description = "Generate the API client and run lint, type checking, HTTP and browser tests"
+description = "Check workflows, generate the API client and run lint, type checking, HTTP and browser tests"
 run = [
+  "actionlint",
+  "npm run test:workflows",
   "npm run generate:openapi",
   "npm run generate:sdk",
   "npm run lint",
