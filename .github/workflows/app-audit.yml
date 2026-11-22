@@ -1,0 +1,107 @@
+name: App audit
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'real: HTTP audit; training: explicitly educational deduplication example'
+        type: choice
+        options: [real, training]
+        default: real
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: app-audit-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    if: >-
+      github.repository == 'shinovnikita/ai-for-developers-project-387' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      APP_URL: ${{ vars.APP_URL }}
+    steps:
+      - name: Check out the exact main SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Record identity and validate event
+        run: node scripts/app-audit.mjs prepare
+
+      - name: Set up mise and install tools
+        uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        with:
+          version: '2026.11.0'
+          cache: false
+
+      - name: Collect GET evidence and existing audit issues
+        id: collect
+        run: node scripts/app-audit.mjs collect
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Install pinned OpenCode
+        run: |
+          npm install --prefix "$RUNNER_TEMP/opencode" --no-package-lock --no-save opencode-ai@1.19.6
+          echo "$RUNNER_TEMP/opencode/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: Analyze evidence in one fresh isolated session
+        id: model
+        run: node scripts/app-audit.mjs model
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Validate findings and publish without duplicates
+        id: publish
+        run: node scripts/app-audit.mjs publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Write audit report including failures
+        if: always()
+        run: node scripts/app-audit.mjs summary
+        env:
+          AUDIT_JOB_STATUS: ${{ job.status }}
+          COLLECT_OUTCOME: ${{ steps.collect.outcome }}
+          MODEL_OUTCOME: ${{ steps.model.outcome }}
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+          AUDIT_WRITE_SUMMARY: 'false'
+
+      - name: Retain audit evidence including failures
+        id: artifacts
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: app-audit-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/app-audit/*.json
+            ${{ runner.temp }}/app-audit/*.jsonl
+            ${{ runner.temp }}/app-audit/*.txt
+            ${{ runner.temp }}/app-audit/*.stderr
+            ${{ runner.temp }}/app-audit/*.md
+            ${{ runner.temp }}/app-audit/http/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Write final audit summary including failures
+        if: always()
+        run: node scripts/app-audit.mjs summary
+        env:
+          AUDIT_JOB_STATUS: ${{ job.status }}
+          COLLECT_OUTCOME: ${{ steps.collect.outcome }}
+          MODEL_OUTCOME: ${{ steps.model.outcome }}
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+          ARTIFACT_OUTCOME: ${{ steps.artifacts.outcome }}
