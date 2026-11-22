@@ -27,7 +27,8 @@ jobs:
 
       - name: Exercise real isolated generation and checks without a model
         run: |
-          export MISE_BINARY="$(command -v mise)"
+          MISE_BINARY="$(command -v mise)"
+          export MISE_BINARY
           node scripts/opencode-candidate.mjs smoke
         env:
           CANDIDATE_DIR: ${{ runner.temp }}/candidate-smoke

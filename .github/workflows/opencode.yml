@@ -269,7 +269,8 @@ jobs:
 
       - name: Generate and check candidate in isolated containers
         run: |
-          export MISE_BINARY="$(command -v mise)"
+          MISE_BINARY="$(command -v mise)"
+          export MISE_BINARY
           node scripts/opencode-candidate.mjs check
         env:
           GH_TOKEN: ${{ github.token }}

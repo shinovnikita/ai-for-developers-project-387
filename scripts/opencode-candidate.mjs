@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { closeSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -90,6 +90,9 @@ export function isolatedArguments({ work, runtime, mise, command }) {
 export function checkCandidate({ proposal, work, runtime, mise, execute }) {
   validateProposal(proposal);
   same(snapshot(work, true), proposal.files, 'Initial candidate differs from original proposal');
+  // actionlint discovers the project through .git. Create an empty, unrelated
+  // repository, with no original history, remotes, hooks or credentials.
+  if (!existsSync(join(work, '.git'))) git(['init', '--template=', '--initial-branch=main', work]);
   mkdirSync(runtime, { recursive: true });
   execute(isolatedArguments({ work, runtime, mise, command:
     'mkdir -p "$HOME"; mise trust /work/mise.toml; mise install; mise exec -- npm ci; mise exec -- npm run generate:openapi; mise exec -- npm run generate:sdk' }));
