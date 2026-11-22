@@ -12,7 +12,7 @@ type AvailabilityState = { date: string; refresh: number } & (
 type Submission =
   | { status: 'idle' | 'submitting' }
   | { status: 'retry'; attempt: CreateMeetingInput }
-  | { status: 'error'; message: string; nameError?: string }
+  | { status: 'error'; message: string; nameError?: string; topicError?: string }
   | { status: 'confirmed'; confirmation: MeetingConfirmation };
 
 const defaultError = 'Не удалось подтвердить запись. Попробуйте ещё раз.';
@@ -44,6 +44,7 @@ export function AvailabilityPicker({ meetingTypeId }: { meetingTypeId: string })
   const [selectedDate, setSelectedDate] = useState<string>();
   const [selectedStart, setSelectedStart] = useState<string>();
   const [guestName, setGuestName] = useState<string>();
+  const [topic, setTopic] = useState('');
   const [submission, setSubmission] = useState<Submission>({ status: 'idle' });
   const submitRequest = useRef<AbortController | null>(null);
 
@@ -55,6 +56,7 @@ export function AvailabilityPicker({ meetingTypeId }: { meetingTypeId: string })
   const submitting = submission.status === 'submitting';
   const retry = submission.status === 'retry' ? submission.attempt : undefined;
   const nameError = submission.status === 'error' ? submission.nameError : undefined;
+  const topicError = submission.status === 'error' ? submission.topicError : undefined;
 
   useEffect(() => {
     let timer: number;
@@ -112,7 +114,14 @@ export function AvailabilityPicker({ meetingTypeId }: { meetingTypeId: string })
     try {
       if (!attempt) {
         if (!selectedSlot || guestName === undefined) return;
-        attempt = { meetingTypeId, startsAt: selectedSlot.startsAt, guestName, attemptId: createAttemptId() };
+        const normalizedTopic = topic.trim();
+        const error = normalizedTopic === '' ? 'Укажите тему'
+          : [...normalizedTopic].length > 200 ? 'Укажите тему до 200 символов' : undefined;
+        if (error) {
+          setSubmission({ status: 'error', message: 'Проверьте поля запроса', topicError: error });
+          return;
+        }
+        attempt = { meetingTypeId, startsAt: selectedSlot.startsAt, guestName, topic: normalizedTopic, attemptId: createAttemptId() };
       }
 
       setSubmission({ status: 'submitting' });
@@ -141,6 +150,7 @@ export function AvailabilityPicker({ meetingTypeId }: { meetingTypeId: string })
         status: 'error',
         message: error?.message || defaultError,
         nameError: error?.code === 'VALIDATION_ERROR' ? error.fieldErrors?.guestName : undefined,
+        topicError: error?.code === 'VALIDATION_ERROR' ? error.fieldErrors?.topic : undefined,
       });
     } catch {
       if (controller.signal.aborted) return;
@@ -156,6 +166,7 @@ export function AvailabilityPicker({ meetingTypeId }: { meetingTypeId: string })
       <Stack component="section" aria-label="Подтверждение записи" w="100%" gap="xs">
         <Title order={2}>Встреча подтверждена</Title>
         <Text>{meeting.meetingTypeName}</Text>
+        <Text style={{ overflowWrap: 'anywhere' }}>{meeting.topic ?? 'Тема не указана'}</Text>
         <Text>{formatMeetingDate(meeting.startsAt)}</Text>
         <Text>{formatTimeRange(meeting.startsAt, meeting.endsAt)}</Text>
         <Text c="dimmed">{timeZone}</Text>
@@ -234,11 +245,23 @@ export function AvailabilityPicker({ meetingTypeId }: { meetingTypeId: string })
                 if (nameError || retry) setSubmission({ status: 'idle' });
               }}
             />
+            <TextInput
+              label="Тема"
+              name="topic"
+              required
+              disabled={submitting}
+              value={topic}
+              error={topicError}
+              onChange={(event) => {
+                setTopic(event.currentTarget.value);
+                if (topicError || retry) setSubmission({ status: 'idle' });
+              }}
+            />
             <Button type="submit" disabled={!selectedSlot && !retry} loading={submitting} w="fit-content">
               {retry ? 'Повторить отправку' : 'Подтвердить запись'}
             </Button>
             {retry && <Text role="alert" c="red">{defaultError}</Text>}
-            {submission.status === 'error' && !nameError && <Text role="alert" c="red">{submission.message}</Text>}
+            {submission.status === 'error' && !nameError && !topicError && <Text role="alert" c="red">{submission.message}</Text>}
           </Stack>
         </form>
       )}

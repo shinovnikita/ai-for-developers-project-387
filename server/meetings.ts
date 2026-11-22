@@ -41,12 +41,14 @@ function hasBookingShape(body: MeetingRequest): body is CreateMeetingInput {
   return typeof body?.meetingTypeId === 'string'
     && typeof body.startsAt === 'string'
     && typeof body.guestName === 'string'
+    && typeof body.topic === 'string'
     && typeof body.attemptId === 'string';
 }
 
 function bookingFieldErrors(body: MeetingRequest, start = parseStart(body?.startsAt)) {
   const fieldErrors: Partial<Record<keyof CreateMeetingInput, string>> = {};
   const guestName = typeof body?.guestName === 'string' ? body.guestName.trim() : '';
+  const topic = typeof body?.topic === 'string' ? body.topic.trim() : '';
 
   if (typeof body?.meetingTypeId !== 'string' || body.meetingTypeId.trim() === '') {
     fieldErrors.meetingTypeId = 'Выберите тип встречи';
@@ -54,6 +56,8 @@ function bookingFieldErrors(body: MeetingRequest, start = parseStart(body?.start
   if (!start) fieldErrors.startsAt = 'Укажите время начала в UTC';
   if (guestName === '') fieldErrors.guestName = 'Укажите имя';
   else if ([...guestName].length > 80) fieldErrors.guestName = 'Укажите имя до 80 символов';
+  if (topic === '') fieldErrors.topic = 'Укажите тему';
+  else if ([...topic].length > 200) fieldErrors.topic = 'Укажите тему до 200 символов';
   if (typeof body?.attemptId !== 'string' || !uuid.test(body.attemptId)) {
     fieldErrors.attemptId = 'Укажите UUID попытки записи';
   }
@@ -103,8 +107,8 @@ export function createMeetingStore(
     FROM meetings WHERE attempt_id = ?
   `);
   const insert = database.prepare(`
-    INSERT INTO meetings (id, meeting_type_id, meeting_type_name, guest_name, starts_at, ends_at, attempt_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO meetings (id, meeting_type_id, meeting_type_name, guest_name, starts_at, ends_at, attempt_id, topic)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   function listActiveSlots(currentTime: Date): Slot[] {
@@ -117,12 +121,14 @@ export function createMeetingStore(
   function save(input: CreateMeetingInput) {
     const { meetingTypeId } = input;
     const guestName = input.guestName.trim();
+    const topic = input.topic.trim();
     const attemptId = input.attemptId.toLowerCase();
     const start = parseStart(input.startsAt);
     const saved = selectAttempt.get(attemptId);
     if (saved) {
       if (saved.meeting_type_id !== meetingTypeId
         || saved.guest_name !== guestName
+        || saved.topic !== topic
         || !start || start.hasSubMillisecondRemainder || saved.starts_at !== start.time) {
         return { status: 409, body: { code: 'ATTEMPT_PAYLOAD_MISMATCH', message: 'Данные попытки записи изменились' } } as const;
       }
@@ -156,9 +162,10 @@ export function createMeetingStore(
       meetingTypeId,
       meetingTypeName: meetingType.name,
       guestName,
+      topic,
       ...slot,
     };
-    insert.run(meeting.id, meetingTypeId, meetingType.name, guestName, start.time, Date.parse(slot.endsAt), attemptId);
+    insert.run(meeting.id, meetingTypeId, meetingType.name, guestName, start.time, Date.parse(slot.endsAt), attemptId, topic);
 
     return { status: 201, body: { timeZone: calendarTimeZone, meeting } satisfies MeetingConfirmation } as const;
   }

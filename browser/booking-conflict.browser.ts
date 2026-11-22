@@ -23,12 +23,14 @@ test('гость выбирает другое время после конфл�
   await expect(originalSlot).toHaveAttribute('aria-pressed', 'true');
   const nameField = page.getByRole('textbox', { name: 'Имя' });
   await nameField.fill(guestName);
+  await page.getByRole('textbox', { name: 'Тема', exact: true }).fill('Мой вопрос');
 
   const reservation = await request.post(`${calendar.apiOrigin}/api/meetings`, {
     data: {
       meetingTypeId: meetingType.id,
       startsAt: '2026-11-17T06:00:00Z',
       guestName: 'Другой гость',
+      topic: 'Другой вопрос',
       attemptId: randomUUID(),
     },
   });
@@ -46,6 +48,7 @@ test('гость выбирает другое время после конфл�
   await expect(slots.getByRole('button', { pressed: true })).toHaveCount(0);
   await expect(typeButton).toHaveAttribute('aria-pressed', 'true');
   await expect(nameField).toHaveValue(guestName);
+  await expect(page.getByRole('textbox', { name: 'Тема', exact: true })).toHaveValue('Мой вопрос');
   await expect(submit).toBeDisabled();
 
   await slots.getByRole('button', { name: '09:30–10:00' }).click();

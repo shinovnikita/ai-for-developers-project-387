@@ -6,7 +6,7 @@ import { expect } from '@playwright/test';
 import { buildApp } from '../server/app.ts';
 import { test as calendarTest } from './fixtures.ts';
 
-const topic = 'Обсудить <b>план</b> ' + 'Я'.repeat(180);
+const topic = 'Обсудить <b>план</b> ' + 'Я'.repeat(179);
 const test = calendarTest.extend({
   calendarDatabasePath: async ({}, use) => {
     const directory = await mkdtemp(join(tmpdir(), 'browser-topic-'));

@@ -6,7 +6,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { expect, test } from 'vitest';
 import { buildApp } from './app.ts';
 
-test('old SQLite meetings survive migration and reopening; list and attempt replay read optional topics', async ({ onTestFinished }) => {
+test('old SQLite and newly booked topic survive migration and reopening; replay cannot update a legacy attempt', async ({ onTestFinished }) => {
   const directory = await mkdtemp(join(tmpdir(), 'calendar-topic-'));
   const databasePath = join(directory, 'calendar.sqlite');
   const database = new DatabaseSync(databasePath);
@@ -49,27 +49,16 @@ test('old SQLite meetings survive migration and reopening; list and attempt repl
   };
   const initialList = await fetch(`${address}/api/meetings/upcoming`);
   expect((await initialList.json()).meetings).toEqual([legacy]);
+  const newInput = { ...input, topic: `  ${topic}  `, startsAt: '2026-11-18T09:00:00Z', attemptId: randomUUID() };
   const created = await fetch(`${address}/api/meetings`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ ...input, startsAt: '2026-11-18T09:00:00Z', attemptId: randomUUID() }),
+    body: JSON.stringify(newInput),
   });
   expect(created.status).toBe(201);
   const newMeeting = (await created.json()).meeting;
-  expect(newMeeting).not.toHaveProperty('topic');
+  expect(newMeeting.topic).toBe(topic);
   await app!.close();
   app = undefined;
-  // Prepared compatibility data, not a new creation request: #8 only expands reading.
-  const fixture = new DatabaseSync(databasePath);
-  try {
-    fixture.prepare(`INSERT INTO meetings
-      (id, meeting_type_id, meeting_type_name, guest_name, starts_at, ends_at, attempt_id, topic)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      'with-topic', 'type', 'Консультация', 'Лена', Date.parse('2026-11-18T08:00:00Z'),
-      Date.parse('2026-11-18T08:30:00Z'), topicAttempt, topic,
-    );
-  } finally {
-    fixture.close();
-  }
   for (let opening = 0; opening < 2; opening += 1) {
     const address = await open();
     const list = await fetch(`${address}/api/meetings/upcoming`);
@@ -80,20 +69,25 @@ test('old SQLite meetings survive migration and reopening; list and attempt repl
     const replay = await fetch(`${address}/api/meetings`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input),
     });
-    expect(replay.status).toBe(200);
-    expect((await replay.json()).meeting).toEqual(upcoming.meetings[0]);
-    expect(upcoming.meetings[1]).toMatchObject({ id: 'with-topic', topic });
+    expect(replay.status).toBe(400);
+    expect(await replay.json()).toMatchObject({ code: 'VALIDATION_ERROR', fieldErrors: { topic: 'Укажите тему' } });
+    for (const topic of ['Новая тема', '', 'Я'.repeat(201)]) {
+      const legacyUpdate = await fetch(`${address}/api/meetings`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...input, topic }),
+      });
+      expect(legacyUpdate.status).toBe(409);
+      expect(await legacyUpdate.json()).toMatchObject({ code: 'ATTEMPT_PAYLOAD_MISMATCH' });
+    }
     const topicReplay = await fetch(`${address}/api/meetings`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...input, guestName: 'Лена', startsAt: '2026-11-18T08:00:00Z', attemptId: topicAttempt }),
+      body: JSON.stringify(newInput),
     });
     expect(topicReplay.status).toBe(200);
     expect((await topicReplay.json()).meeting).toEqual(upcoming.meetings[1]);
-    expect(upcoming.meetings).toHaveLength(3);
-    expect(upcoming.meetings[2]).toEqual(newMeeting);
+    expect(upcoming.meetings).toEqual([legacy, newMeeting]);
+    const afterReplay = await fetch(`${address}/api/meetings/upcoming`);
+    expect((await afterReplay.json()).meetings).toEqual([legacy, newMeeting]);
     await app!.close();
     app = undefined;
   }
 });
-
-const topicAttempt = 'd81f692a-d7f0-4ef1-aa82-e18d2b4d0c1e';
