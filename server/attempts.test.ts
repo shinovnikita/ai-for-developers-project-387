@@ -9,6 +9,7 @@ async function startAttempt(calendar: Calendar) {
     meetingTypeId: id,
     startsAt: '2026-11-18T07:00:00Z',
     guestName: 'Ян',
+    topic: 'План перехода',
     attemptId: randomUUID(),
   };
   return {

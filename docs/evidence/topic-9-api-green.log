@@ -1,0 +1,17 @@
+$ mise exec -- npm test -- server/topic.test.ts server/topic-compatibility.test.ts server/meetings.test.ts server/attempts.test.ts
+
+> test
+> vitest run server/topic.test.ts server/topic-compatibility.test.ts server/meetings.test.ts server/attempts.test.ts
+
+ RUN  v5.1.0 /home/runner/work/ai-for-developers-project-387/ai-for-developers-project-387
+
+ Test Files  4 passed (4)
+      Tests  20 passed (20)
+   Start at  20:55:36
+   Duration  968ms (tests 74%, import 21%, transform 5%, worker 1%)
+
+> typecheck
+> tsc --noEmit && tsc -b frontend
+
+> lint
+> oxlint --deny-warnings --react-plugin --vitest-plugin server frontend

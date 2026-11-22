@@ -89,6 +89,11 @@ model Meeting {
   @maxLength(80)
   guestName: string;
 
+  @doc("Saved meeting topic, containing 1–200 Unicode code points after trimming leading and trailing whitespace. Absent for legacy meetings without a topic; no display fallback is returned.")
+  @minLength(1)
+  @maxLength(200)
+  topic?: string;
+
   ...Slot;
 }
 
@@ -101,6 +106,9 @@ model CreateMeetingInput {
 
   @doc("After trimming leading and trailing whitespace, the guest name must contain 1–80 characters.")
   guestName: string;
+
+  @doc("Required topic for a new booking: trim leading/trailing whitespace, then validate 1–200 Unicode code points without truncation. Normalized topic participates in attempt comparison before new-booking validation; changed strings return ATTEMPT_PAYLOAD_MISMATCH, missing/non-string values return VALIDATION_ERROR. Legacy attempts cannot be updated with a topic.")
+  topic: string;
 
   @format("uuid")
   attemptId: string;

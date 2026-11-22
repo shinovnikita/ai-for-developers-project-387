@@ -12,11 +12,13 @@ type Calendar = {
   setNow: (instant: string) => void;
 };
 
-export const test = base.extend<{ calendar: Calendar }>({
-  calendar: async ({}, use) => {
+export const test = base.extend<{ calendar: Calendar; calendarDatabasePath: string }>({
+  calendarDatabasePath: [':memory:', { option: true }],
+  calendar: async ({ calendarDatabasePath }, use) => {
     const host = '127.0.0.1';
     let now = new Date(fixedTime);
     const app = buildApp({}, [], {
+      databasePath: calendarDatabasePath,
       now: () => now,
       schedule: readWeeklySchedule(undefined),
     });

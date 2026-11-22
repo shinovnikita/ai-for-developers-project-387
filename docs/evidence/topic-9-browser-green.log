@@ -1,0 +1,18 @@
+$ mise run check
+[check] $ npm exec -- playwright test --reporter=list
+
+Running 11 tests using 2 workers
+
+  ✓   1 browser/booking-retry.browser.ts:5:1 › гость восстанавливает подтверждение после потери ответа и сдвига окна записи (1.7s)
+  ✓   2 browser/booking-conflict.browser.ts:6:1 › гость выбирает другое время после конфликта записи (1.9s)
+  ✓   3 browser/topic-booking.browser.ts:26:3 › form accepts one code point after trimming without raw length restriction (1.2s)
+  ✓   4 browser/topic-owner.browser.ts:36:1 › owner reads full saved topic and legacy fallback on a narrow screen after refresh and reload (1.1s)
+  ✓   5 browser/topic-booking.browser.ts:26:3 › form accepts 200 Cyrillic code points after trimming without raw length restriction (1.2s)
+  ✓   6 browser/upcoming-meetings.browser.ts:8:1 › после записи через главную владелец видит встречу и может обновить список (2.0s)
+  ✓   7 browser/topic-booking.browser.ts:26:3 › form accepts 200 astral code points after trimming without raw length restriction (1.1s)
+  ✓   8 browser/topic-booking.browser.ts:26:3 › form accepts 200 combining code points after trimming without raw length restriction (883ms)
+  ✓   9 browser/topic-booking.browser.ts:39:1 › form shows topic field error from real server and confirmation uses server topic rather than draft (987ms)
+  ✓  10 browser/topic-booking.browser.ts:70:1 › editing topic after lost actual response invalidates the attempt and does not update saved meeting (1.1s)
+  ✓  11 browser/topic-booking.browser.ts:99:1 › form rejects empty, whitespace and 201 code points locally, then accepts correction (1.1s)
+
+  11 passed (10.3s)

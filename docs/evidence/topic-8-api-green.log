@@ -1,0 +1,13 @@
+
+> test
+> vitest run server/topic-compatibility.test.ts
+
+
+ RUN  v5.1.0 /home/runner/work/ai-for-developers-project-387/ai-for-developers-project-387
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  20:52:52
+   Duration  267ms (tests 62%, import 31%, transform 6%, worker 1%)
+

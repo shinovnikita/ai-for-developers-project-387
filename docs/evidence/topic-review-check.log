@@ -1,0 +1,146 @@
+[38;5;14m[check][0m [1m$ actionlint[0m
+[38;5;14m[check][0m [1m$ npm run test:workflows[0m
+
+> test:workflows
+> node --test scripts/*.checks.mjs
+
+✔ browser identity records the full PR head, never the merge SHA (1.750918ms)
+✔ reports use observed results and cannot turn missing or failed tests into success (0.691723ms)
+✔ stable CI and browser checks run on all PR changes with no secret or write permission (4.245151ms)
+✔ topic evidence reports observed scenario and failure rather than the obsolete infrastructure disclaimer (0.415779ms)
+✔ one reservation is a whole session and exhausted budget refuses both session kinds (2.590976ms)
+✔ SHA changes, retries and cancelled/failed sessions retain reservations; PRs have separate totals (0.820786ms)
+✔ the same run attempt cannot reserve twice, including after a SHA change (0.179065ms)
+✔ concurrent duplicate invocations permit only one session for a run attempt (0.396004ms)
+✔ parallel reservations retry compare-and-swap conflicts without exceeding the common PR limit (3.576983ms)
+✔ missing, corrupt, wrong-repository or unreadable state fails closed without append (1.069881ms)
+✔ permanent append errors do not retry as if the state were empty (0.208973ms)
+✔ bounded contention refuses a session instead of allowing an unreserved model call (0.147135ms)
+✔ ledger schema rejects invalid records instead of treating them as uncounted sessions (3.798115ms)
+✔ REST store reads exact ref, commit, tree and blob and appends a non-force child commit (1.555027ms)
+✔ REST 404 never initializes a branch or resets state (0.285554ms)
+✔ REST reports a retryable CAS race only after confirming the ref changed (0.919707ms)
+✔ CLI refusal exits nonzero, persists PR/head/log, and makes no model invocation (37.945139ms)
+✔ a successful final candidate check precedes the real Git commit and simulated push (95.962069ms)
+✔ a failed mise run check prevents both commit and push and leaves original HEAD intact (62.5228ms)
+✔ source or generated output mutation during installation/check cannot receive a PASS receipt (179.067679ms)
+✔ a generated directory symlink is rejected before host reads or publishes its target (40.054249ms)
+✔ tracked files hidden under runtime/generated exclusions cannot bypass complete candidate checking (140.28189ms)
+✔ a full-tree substitution or stale PR/remote HEAD prevents commit and push (203.57667ms)
+✔ without explicit linked issues the correction commit has no fictitious Refs #4 (58.575567ms)
+✔ receipts are bound to the immutable original proposal, full candidate, run and attempt (38.462398ms)
+✔ artifact origin and digest are checked against GitHub metadata rather than an artifact claim (0.514535ms)
+✔ only the expected successful workflow jobs and steps from the exact attempt are accepted (0.775389ms)
+✔ candidate execution receives only explicit container data mounts and no credentials or runner access (0.31375ms)
+✔ trusted workflow keeps candidate checking separate and binds artifact IDs/digests through job outputs (4.322386ms)
+✔ release PR is readable by independent review but never automatically corrected (1.222856ms)
+✔ review release allowance retains repository, fork, state, protected branch and SHA guards (1.52553ms)
+✔ explicit verified linked tickets create distinct sorted Conventional Commit Refs (1.179312ms)
+✔ missing or empty linkage never turns prose, closing keywords or #4 into a commit reference (0.224745ms)
+✔ ambiguous, malformed or foreign linkage is rejected before any issue lookup (1.225031ms)
+✔ linked issue lookup must prove an existing ordinary issue in the target repository (0.947697ms)
+✔ both PR comment surfaces accept trusted explicit commands independent of ready labels (1.492783ms)
+✔ automatic review starts only for its explicit lifecycle events and ready PRs (0.239233ms)
+✔ live PR policy rejects forks, main, protected work branches, wrong repo and changed HEAD (0.796175ms)
+✔ actual prepare command leaves allowed=false for a fork and records current PR head for inline fixes (67.115109ms)
+✔ the review prompt transmits trusted REVIEW.md, exact SHA and evidence without implementation authority (0.509904ms)
+✔ model environment strips GitHub/OIDC credentials, inherited config and executable hooks (0.414591ms)
+✔ actual model orchestration uses a fresh isolated CLI, stdin prompt and JSONL (harmless stand-in, no model) (91.671184ms)
+✔ unsafe edit aliases, traversal, workflow files and generated files are rejected before writing (0.464096ms)
+✔ actual edit application checks source hashes and rejects existing and dangling symlinks (1.649591ms)
+✔ workflow budget gate precedes setup/model, and only the permitted model step has its key (0.677551ms)
+✔ PR request workflows only signal untrusted data without checkout, model, OIDC or write rights (0.438734ms)
+✔ actual inline request filter emits identifiers only and rejects bots, forks and noncommands without a model (158.137013ms)
+✔ actual forwarded review preflight validates source run and rejects stale, fork or replayed metadata (335.91093ms)
+✔ actual forwarded Release Please PR is eligible for independent review but not inline correction (133.892332ms)
+✔ release review wait and publication preserve review policy and the exact checked head SHA (79.900608ms)
+✔ actual inline forwarding verifies bounded ZIP identifiers against live REST comment and current PR (921.34135ms)
+✔ publication is tied to reviewed SHA and explicit non-force destination with hooks disabled (0.319172ms)
+✔ workflow gates every checkout, setup and model step before exposing credentials (1.522933ms)
+✔ trusted runtime, auth and concurrency match the manual workflow (1.46396ms)
+✔ trusted User, ordinary issue without /oc (33.489017ms)
+✔ same trusted User, ready-for-agent (27.417823ms)
+✔ same trusted User, ready-for-human (29.603951ms)
+✔ bot (26.05294ms)
+✔ trusted login with Bot account type (30.265004ms)
+✔ untrusted User despite trusted sender (28.111897ms)
+✔ another repository (25.395632ms)
+✔ label added later is not an opened event (25.308992ms)
+✔ issue_comment is not an issues event (29.129979ms)
+✔ PR is not an ordinary issue (25.046552ms)
+✔ missing author (25.920981ms)
+✔ shell and expression syntax in issue text remains data (29.99857ms)
+ℹ tests 66
+ℹ suites 0
+ℹ pass 66
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1969.882631
+[38;5;14m[check][0m [1m$ npm run generate:openapi[0m
+
+> generate:openapi
+> tsp compile api
+
+TypeSpec compiler v1.18.0
+
+- Compiling...
+[32m✔[39m Compiling
+- Running @typespec/openapi3...
+[32m✔[39m @typespec/openapi3 [32m25ms[39m [2mapi/generated/[22m
+
+Compilation completed successfully.
+
+[38;5;14m[check][0m [1m$ npm run generate:sdk[0m
+
+> generate:sdk
+> openapi-ts -i api/generated/openapi.yaml -o api/generated/sdk -p @hey-api/client-fetch @hey-api/typescript @hey-api/sdk fastify
+
+[90m@hey-api/openapi-ts v0.99.0[39m
+
+[90m[Job 1] [39m[90m~[39m [36mGenerating...[39m
+[90m[Job 1] [39m[36m  [1] [39mapi/generated/openapi.yaml
+[90m[Job 1] [39m[32m✓[39m [96m./api/generated/sdk[39m [90m· 5 files · 68ms[39m
+[38;5;14m[check][0m [1m$ npm run lint[0m
+
+> lint
+> oxlint --deny-warnings --react-plugin --vitest-plugin server frontend
+
+[38;5;14m[check][0m [1m$ npm run typecheck[0m
+
+> typecheck
+> tsc --noEmit && tsc -b frontend
+
+[38;5;14m[check][0m [1m$ npm test[0m
+
+> test
+> vitest run
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.1.0 [39m[90m/home/runner/work/ai-for-developers-project-387/ai-for-developers-project-387[39m
+
+
+[2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[32m44 passed[39m[22m[90m (44)[39m
+[2m   Start at [22m 21:01:51
+[2m   Duration [22m 1.38s[2m (tests 64%, import 32%, transform 3%, worker 1%)[22m
+
+[38;5;14m[check][0m [1m$ npm exec -- playwright test --reporter=list[0m
+
+Running 12 tests using 2 workers
+
+  ✓   2 browser/booking-retry.browser.ts:5:1 › гость восстанавливает подтверждение после потери ответа и сдвига окна записи (1.7s)
+  ✓   1 browser/booking-conflict.browser.ts:6:1 › гость выбирает другое время после конфликта записи (1.8s)
+  ✓   4 browser/topic-neighbors.browser.ts:5:1 › long guest and meeting type stay inside their own cells beside the topic at 320px (825ms)
+  ✓   3 browser/topic-booking.browser.ts:26:3 › form accepts one code point after trimming without raw length restriction (1.4s)
+  ✓   5 browser/topic-owner.browser.ts:36:1 › owner reads full saved topic and legacy fallback on a narrow screen after refresh and reload (1.1s)
+  ✓   6 browser/topic-booking.browser.ts:26:3 › form accepts 200 Cyrillic code points after trimming without raw length restriction (1.2s)
+  ✓   8 browser/topic-booking.browser.ts:26:3 › form accepts 200 astral code points after trimming without raw length restriction (1.0s)
+  ✓   7 browser/upcoming-meetings.browser.ts:8:1 › после записи через главную владелец видит встречу и может обновить список (2.0s)
+  ✓   9 browser/topic-booking.browser.ts:26:3 › form accepts 200 combining code points after trimming without raw length restriction (962ms)
+  ✓  10 browser/topic-booking.browser.ts:39:1 › form shows topic field error from real server and confirmation uses server topic rather than draft (987ms)
+  ✓  11 browser/topic-booking.browser.ts:70:1 › editing topic after lost actual response invalidates the attempt and does not update saved meeting (1.1s)
+  ✓  12 browser/topic-booking.browser.ts:99:1 › form rejects empty, whitespace and 201 code points locally, then accepts correction (1.1s)
+
+  12 passed (10.5s)

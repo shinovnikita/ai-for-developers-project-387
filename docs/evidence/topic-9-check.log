@@ -1,0 +1,64 @@
+$ mise run check
+[check] $ actionlint
+[check] $ npm run test:workflows
+
+> test:workflows
+> node --test scripts/*.checks.mjs
+
+[Individual successful workflow test lines omitted; observed totals follow.]
+ℹ tests 66
+ℹ suites 0
+ℹ pass 66
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2190.612155
+[check] $ npm run generate:openapi
+
+> generate:openapi
+> tsp compile api
+
+TypeSpec compiler v1.18.0
+
+- Compiling...
+✔ Compiling
+- Running @typespec/openapi3...
+✔ @typespec/openapi3 28ms api/generated/
+
+Compilation completed successfully.
+
+[check] $ npm run generate:sdk
+
+> generate:sdk
+> openapi-ts -i api/generated/openapi.yaml -o api/generated/sdk -p @hey-api/client-fetch @hey-api/typescript @hey-api/sdk fastify
+
+@hey-api/openapi-ts v0.99.0
+
+[Job 1] ~ Generating...
+[Job 1]   [1] api/generated/openapi.yaml
+[Job 1] ✓ ./api/generated/sdk · 5 files · 80ms
+[check] $ npm run lint
+
+> lint
+> oxlint --deny-warnings --react-plugin --vitest-plugin server frontend
+
+[check] $ npm run typecheck
+
+> typecheck
+> tsc --noEmit && tsc -b frontend
+
+[check] $ npm test
+
+> test
+> vitest run
+
+ RUN  v5.1.0 /home/runner/work/ai-for-developers-project-387/ai-for-developers-project-387
+
+ Test Files  8 passed (8)
+      Tests  44 passed (44)
+   Start at  20:57:05
+   Duration  1.42s (tests 63%, import 32%, transform 4%, worker 1%)
+
+[check] $ npm exec -- playwright test --reporter=list
+[Browser output saved in topic-9-browser-green.log.]

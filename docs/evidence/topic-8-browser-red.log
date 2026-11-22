@@ -1,0 +1,37 @@
+
+Running 1 test using 1 worker
+
+  ✘  1 browser/topic-owner.browser.ts:36:1 › owner reads full saved topic and legacy fallback on a narrow screen after refresh and reload (5.6s)
+
+
+  1) browser/topic-owner.browser.ts:36:1 › owner reads full saved topic and legacy fallback on a narrow screen after refresh and reload 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('region', { name: 'Предстоящие встречи' }).getByRole('row').filter({ hasText: 'Ян' }).getByText('Тема не указана', { exact: true })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('region', { name: 'Предстоящие встречи' }).getByRole('row').filter({ hasText: 'Ян' }).getByText('Тема не указана', { exact: true }) with timeout 5000ms
+      - waiting for getByRole('region', { name: 'Предстоящие встречи' }).getByRole('row').filter({ hasText: 'Ян' }).getByText('Тема не указана', { exact: true })
+
+
+      41 |     if (action === 'reload') await page.reload();
+      42 |     const legacy = upcoming.getByRole('row').filter({ hasText: 'Ян' });
+    > 43 |     await expect(legacy.getByText('Тема не указана', { exact: true })).toBeVisible();
+         |                                                                        ^
+      44 |     const row = upcoming.getByRole('row').filter({ hasText: 'Лена' });
+      45 |     const text = row.getByText(topic, { exact: true });
+      46 |     await expect(text).toBeVisible();
+        at /home/runner/work/ai-for-developers-project-387/ai-for-developers-project-387/browser/topic-owner.browser.ts:43:72
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/topic-owner.browser.ts-own-a89db-en-after-refresh-and-reload/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/topic-owner.browser.ts-own-a89db-en-after-refresh-and-reload/error-context.md
+
+  1 failed
+    browser/topic-owner.browser.ts:36:1 › owner reads full saved topic and legacy fallback on a narrow screen after refresh and reload 

@@ -1,0 +1,10 @@
+$ mise exec -- npm exec -- playwright test browser/topic-booking.browser.ts --reporter=list
+Running 1 test using 1 worker
+  ✘ 1 browser/topic-booking.browser.ts:19:1 › form rejects empty, whitespace and 201 code points locally, then accepts correction (4.0s)
+Error: expect(locator).toBeVisible() failed
+Locator: getByRole('textbox', { name: 'Тема', exact: true })
+Expected: visible
+Timeout: 3000ms
+Error: element(s) not found
+at browser/topic-booking.browser.ts:22:23
+  1 failed

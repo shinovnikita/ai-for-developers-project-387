@@ -4,7 +4,7 @@ import type { Availability } from '../api/generated/sdk/types.gen.ts';
 import { startCalendar, type Calendar } from './calendar-test-fixture.ts';
 
 function book(calendar: Calendar, meetingTypeId: string, startsAt: string, guestName = 'Ян') {
-  return calendar.post('/api/meetings', { meetingTypeId, startsAt, guestName, attemptId: randomUUID() });
+  return calendar.post('/api/meetings', { meetingTypeId, startsAt, guestName, topic: 'Обсудить план', attemptId: randomUUID() });
 }
 
 const singleBooking = {
@@ -40,6 +40,7 @@ test('список предстоящих встреч сортируется п
         meetingTypeId: introduction.id,
         meetingTypeName: 'Знакомство',
         guestName: 'Ян',
+        topic: 'Обсудить план',
         startsAt: '2026-11-18T07:00:00Z',
         endsAt: '2026-11-18T07:17:00Z',
       },
@@ -48,6 +49,7 @@ test('список предстоящих встреч сортируется п
         meetingTypeId: consultation.id,
         meetingTypeName: 'Консультация',
         guestName: 'Лена',
+        topic: 'Обсудить план',
         startsAt: '2026-11-18T08:00:00Z',
         endsAt: '2026-11-18T08:30:00Z',
       },
@@ -108,6 +110,7 @@ test('запись исключает пересечения из доступн
       meetingTypeId: introduction.id,
       meetingTypeName: 'Знакомство',
       guestName: 'Ян',
+      topic: 'Обсудить план',
       startsAt: '2026-11-18T06:00:00Z',
       endsAt: '2026-11-18T06:17:00Z',
     },
@@ -156,6 +159,7 @@ test('запись возвращает согласованную ошибку 
     meetingTypeId: id,
     startsAt: '2026-11-31T07:00:00Z',
     guestName: 'Ян',
+    topic: 'Обсудить план',
     attemptId: 'no-uuid',
   });
   expect(invalid.status).toBe(400);

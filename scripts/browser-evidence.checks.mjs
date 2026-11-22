@@ -60,3 +60,18 @@ test('stable CI and browser checks run on all PR changes with no secret or write
   assert.equal(steps.find(({ name }) => name === 'Write observed results').if, 'always()');
   assert.equal(steps.find(({ uses }) => uses?.startsWith('actions/upload-artifact@')).if, 'always()');
 });
+
+test('topic evidence reports observed scenario and failure rather than the obsolete infrastructure disclaimer', () => {
+  const report = { suites: [{ specs: [{
+    title: 'form shows topic field error from real server and confirmation uses server topic rather than draft',
+    file: 'browser/topic-booking.browser.ts',
+    tests: [{ status: 'unexpected', results: [{ status: 'failed', duration: 20, errors: [{ message: 'topic missing' }] }] }],
+  }] }] };
+  const rows = observations(report);
+  assert.match(rows[0].steps.join('\n'), /fieldErrors.topic настоящего сервера/);
+  const markdown = render(identity(event, head, env), rows, 'failure');
+  assert.match(markdown, /Сценарии темы из #7/);
+  assert.match(markdown, /FAIL \/ INCOMPLETE/);
+  assert.match(markdown, /topic missing/);
+  assert.doesNotMatch(markdown, /не реализованы/);
+});

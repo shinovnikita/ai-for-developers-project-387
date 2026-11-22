@@ -16,6 +16,7 @@ function meetingFromRow(row: Record<string, SQLOutputValue>): Meeting {
     meetingTypeId: String(row.meeting_type_id),
     meetingTypeName: String(row.meeting_type_name),
     guestName: String(row.guest_name),
+    ...(typeof row.topic === 'string' ? { topic: row.topic } : {}),
     startsAt: utcTimestamp(Number(row.starts_at)),
     endsAt: utcTimestamp(Number(row.ends_at)),
   };
@@ -40,12 +41,14 @@ function hasBookingShape(body: MeetingRequest): body is CreateMeetingInput {
   return typeof body?.meetingTypeId === 'string'
     && typeof body.startsAt === 'string'
     && typeof body.guestName === 'string'
+    && typeof body.topic === 'string'
     && typeof body.attemptId === 'string';
 }
 
 function bookingFieldErrors(body: MeetingRequest, start = parseStart(body?.startsAt)) {
   const fieldErrors: Partial<Record<keyof CreateMeetingInput, string>> = {};
   const guestName = typeof body?.guestName === 'string' ? body.guestName.trim() : '';
+  const topic = typeof body?.topic === 'string' ? body.topic.trim() : '';
 
   if (typeof body?.meetingTypeId !== 'string' || body.meetingTypeId.trim() === '') {
     fieldErrors.meetingTypeId = 'Выберите тип встречи';
@@ -53,6 +56,8 @@ function bookingFieldErrors(body: MeetingRequest, start = parseStart(body?.start
   if (!start) fieldErrors.startsAt = 'Укажите время начала в UTC';
   if (guestName === '') fieldErrors.guestName = 'Укажите имя';
   else if ([...guestName].length > 80) fieldErrors.guestName = 'Укажите имя до 80 символов';
+  if (topic === '') fieldErrors.topic = 'Укажите тему';
+  else if ([...topic].length > 200) fieldErrors.topic = 'Укажите тему до 200 символов';
   if (typeof body?.attemptId !== 'string' || !uuid.test(body.attemptId)) {
     fieldErrors.attemptId = 'Укажите UUID попытки записи';
   }
@@ -74,23 +79,36 @@ export function createMeetingStore(
       guest_name TEXT NOT NULL,
       starts_at INTEGER NOT NULL,
       ends_at INTEGER NOT NULL,
-      attempt_id TEXT NOT NULL UNIQUE
+      attempt_id TEXT NOT NULL UNIQUE,
+      topic TEXT
     ) STRICT
   `);
 
+  database.exec('BEGIN IMMEDIATE');
+  try {
+    const columns = database.prepare('PRAGMA table_info(meetings)').all();
+    if (!columns.some((column) => column.name === 'topic')) {
+      database.exec('ALTER TABLE meetings ADD COLUMN topic TEXT');
+    }
+    database.exec('COMMIT');
+  } catch (error) {
+    database.exec('ROLLBACK');
+    throw error;
+  }
+
   const selectUpcoming = database.prepare(`
-    SELECT id, meeting_type_id, meeting_type_name, guest_name, starts_at, ends_at
+    SELECT id, meeting_type_id, meeting_type_name, guest_name, starts_at, ends_at, topic
     FROM meetings WHERE starts_at > ? ORDER BY starts_at ASC
   `);
 
   const selectActive = database.prepare('SELECT starts_at, ends_at FROM meetings WHERE ends_at > ?');
   const selectAttempt = database.prepare(`
-    SELECT id, meeting_type_id, meeting_type_name, guest_name, starts_at, ends_at
+    SELECT id, meeting_type_id, meeting_type_name, guest_name, starts_at, ends_at, topic
     FROM meetings WHERE attempt_id = ?
   `);
   const insert = database.prepare(`
-    INSERT INTO meetings (id, meeting_type_id, meeting_type_name, guest_name, starts_at, ends_at, attempt_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO meetings (id, meeting_type_id, meeting_type_name, guest_name, starts_at, ends_at, attempt_id, topic)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   function listActiveSlots(currentTime: Date): Slot[] {
@@ -103,12 +121,14 @@ export function createMeetingStore(
   function save(input: CreateMeetingInput) {
     const { meetingTypeId } = input;
     const guestName = input.guestName.trim();
+    const topic = input.topic.trim();
     const attemptId = input.attemptId.toLowerCase();
     const start = parseStart(input.startsAt);
     const saved = selectAttempt.get(attemptId);
     if (saved) {
       if (saved.meeting_type_id !== meetingTypeId
         || saved.guest_name !== guestName
+        || saved.topic !== topic
         || !start || start.hasSubMillisecondRemainder || saved.starts_at !== start.time) {
         return { status: 409, body: { code: 'ATTEMPT_PAYLOAD_MISMATCH', message: 'Данные попытки записи изменились' } } as const;
       }
@@ -142,9 +162,10 @@ export function createMeetingStore(
       meetingTypeId,
       meetingTypeName: meetingType.name,
       guestName,
+      topic,
       ...slot,
     };
-    insert.run(meeting.id, meetingTypeId, meetingType.name, guestName, start.time, Date.parse(slot.endsAt), attemptId);
+    insert.run(meeting.id, meetingTypeId, meetingType.name, guestName, start.time, Date.parse(slot.endsAt), attemptId, topic);
 
     return { status: 201, body: { timeZone: calendarTimeZone, meeting } satisfies MeetingConfirmation } as const;
   }

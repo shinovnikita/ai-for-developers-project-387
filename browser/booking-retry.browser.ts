@@ -23,8 +23,14 @@ test('гость восстанавливает подтверждение по�
   await originalDate.click();
   await page.getByRole('button', { name: '09:00–09:30' }).click();
   await page.getByRole('textbox', { name: 'Имя' }).fill('Ян');
+  await page.getByRole('textbox', { name: 'Тема', exact: true }).fill('  План перехода 🚀  ');
   await page.getByRole('button', { name: 'Подтвердить запись' }).click();
   await expect(page.getByRole('alert')).toContainText('Не удалось подтвердить запись');
+  expect(firstAttempt?.topic).toBe('План перехода 🚀');
+  const before = await request.get(`${calendar.apiOrigin}/api/meetings/upcoming`);
+  const saved = (await before.json()).meetings;
+  expect(saved).toHaveLength(1);
+  expect(saved[0].topic).toBe('План перехода 🚀');
 
   const nextDate = '2026-11-17T21:00:01Z';
   calendar.setNow(nextDate);
@@ -39,9 +45,14 @@ test('гость восстанавливает подтверждение по�
   const response = await responsePromise;
   expect(response.request().postDataJSON()).toEqual(firstAttempt);
   expect(response.status()).toBe(200);
+  expect((await response.json()).meeting).toEqual(saved[0]);
 
   const confirmation = page.getByRole('region', { name: 'Подтверждение записи' });
   await expect(confirmation.getByRole('heading', { name: 'Встреча подтверждена' })).toBeVisible();
   await expect(confirmation.getByText('17 ноября 2026 г.')).toBeVisible();
   await expect(confirmation.getByText('09:00–09:30')).toBeVisible();
+  await expect(confirmation.getByText('План перехода 🚀', { exact: true })).toBeVisible();
+  calendar.setNow('2026-11-17T05:00:00Z');
+  const after = await request.get(`${calendar.apiOrigin}/api/meetings/upcoming`);
+  expect((await after.json()).meetings).toEqual(saved);
 });

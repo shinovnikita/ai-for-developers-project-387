@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ✓  1 browser/topic-owner.browser.ts:36:1 › owner reads full saved topic and legacy fallback on a narrow screen after refresh and reload (1.1s)
+
+  1 passed (1.9s)
