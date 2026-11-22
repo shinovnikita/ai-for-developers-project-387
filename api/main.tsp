@@ -89,6 +89,11 @@ model Meeting {
   @maxLength(80)
   guestName: string;
 
+  @doc("Saved meeting topic, containing 1–200 Unicode code points after trimming leading and trailing whitespace. Absent for legacy meetings without a topic; no display fallback is returned.")
+  @minLength(1)
+  @maxLength(200)
+  topic?: string;
+
   ...Slot;
 }
 

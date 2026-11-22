@@ -51,11 +51,11 @@ export function UpcomingMeetings() {
       ) : (
         <>
           <Text c="dimmed">Время по часовому поясу {upcoming.timeZone}</Text>
-          <Table.ScrollContainer minWidth={480}>
-            <Table>
+          <Table.ScrollContainer minWidth={0}>
+            <Table style={{ tableLayout: 'fixed' }}>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th scope="col">Тип встречи</Table.Th>
+                  <Table.Th scope="col" w="40%">Тип встречи</Table.Th>
                   <Table.Th scope="col">Гость</Table.Th>
                   <Table.Th scope="col">Дата</Table.Th>
                   <Table.Th scope="col">Время</Table.Th>
@@ -64,7 +64,10 @@ export function UpcomingMeetings() {
               <Table.Tbody>
                 {upcoming.meetings.map((meeting) => (
                   <Table.Tr key={meeting.id}>
-                    <Table.Td>{meeting.meetingTypeName}</Table.Td>
+                    <Table.Td>
+                      <Text>{meeting.meetingTypeName}</Text>
+                      <Text style={{ overflowWrap: 'anywhere' }}>{meeting.topic ?? 'Тема не указана'}</Text>
+                    </Table.Td>
                     <Table.Td>{meeting.guestName}</Table.Td>
                     <Table.Td>{formatMeetingDate(meeting.startsAt)}</Table.Td>
                     <Table.Td>{formatTimeRange(meeting.startsAt, meeting.endsAt)}</Table.Td>

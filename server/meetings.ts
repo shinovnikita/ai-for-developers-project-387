@@ -16,6 +16,7 @@ function meetingFromRow(row: Record<string, SQLOutputValue>): Meeting {
     meetingTypeId: String(row.meeting_type_id),
     meetingTypeName: String(row.meeting_type_name),
     guestName: String(row.guest_name),
+    ...(typeof row.topic === 'string' ? { topic: row.topic } : {}),
     startsAt: utcTimestamp(Number(row.starts_at)),
     endsAt: utcTimestamp(Number(row.ends_at)),
   };
@@ -74,18 +75,31 @@ export function createMeetingStore(
       guest_name TEXT NOT NULL,
       starts_at INTEGER NOT NULL,
       ends_at INTEGER NOT NULL,
-      attempt_id TEXT NOT NULL UNIQUE
+      attempt_id TEXT NOT NULL UNIQUE,
+      topic TEXT
     ) STRICT
   `);
 
+  database.exec('BEGIN IMMEDIATE');
+  try {
+    const columns = database.prepare('PRAGMA table_info(meetings)').all();
+    if (!columns.some((column) => column.name === 'topic')) {
+      database.exec('ALTER TABLE meetings ADD COLUMN topic TEXT');
+    }
+    database.exec('COMMIT');
+  } catch (error) {
+    database.exec('ROLLBACK');
+    throw error;
+  }
+
   const selectUpcoming = database.prepare(`
-    SELECT id, meeting_type_id, meeting_type_name, guest_name, starts_at, ends_at
+    SELECT id, meeting_type_id, meeting_type_name, guest_name, starts_at, ends_at, topic
     FROM meetings WHERE starts_at > ? ORDER BY starts_at ASC
   `);
 
   const selectActive = database.prepare('SELECT starts_at, ends_at FROM meetings WHERE ends_at > ?');
   const selectAttempt = database.prepare(`
-    SELECT id, meeting_type_id, meeting_type_name, guest_name, starts_at, ends_at
+    SELECT id, meeting_type_id, meeting_type_name, guest_name, starts_at, ends_at, topic
     FROM meetings WHERE attempt_id = ?
   `);
   const insert = database.prepare(`

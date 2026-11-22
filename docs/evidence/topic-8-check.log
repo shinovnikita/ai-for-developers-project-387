@@ -1,0 +1,137 @@
+[38;5;14m[check][0m [1m$ actionlint[0m
+[38;5;14m[check][0m [1m$ npm run test:workflows[0m
+
+> test:workflows
+> node --test scripts/*.checks.mjs
+
+✔ browser identity records the full PR head, never the merge SHA (2.104078ms)
+✔ reports use observed results and cannot turn missing or failed tests into success (0.689454ms)
+✔ stable CI and browser checks run on all PR changes with no secret or write permission (4.62194ms)
+✔ one reservation is a whole session and exhausted budget refuses both session kinds (3.328275ms)
+✔ SHA changes, retries and cancelled/failed sessions retain reservations; PRs have separate totals (1.034359ms)
+✔ the same run attempt cannot reserve twice, including after a SHA change (0.259399ms)
+✔ concurrent duplicate invocations permit only one session for a run attempt (0.934908ms)
+✔ parallel reservations retry compare-and-swap conflicts without exceeding the common PR limit (6.78675ms)
+✔ missing, corrupt, wrong-repository or unreadable state fails closed without append (1.390357ms)
+✔ permanent append errors do not retry as if the state were empty (0.243038ms)
+✔ bounded contention refuses a session instead of allowing an unreserved model call (0.135634ms)
+✔ ledger schema rejects invalid records instead of treating them as uncounted sessions (0.764881ms)
+✔ REST store reads exact ref, commit, tree and blob and appends a non-force child commit (1.779309ms)
+✔ REST 404 never initializes a branch or resets state (0.258132ms)
+✔ REST reports a retryable CAS race only after confirming the ref changed (0.765974ms)
+✔ CLI refusal exits nonzero, persists PR/head/log, and makes no model invocation (44.003617ms)
+✔ a successful final candidate check precedes the real Git commit and simulated push (116.539021ms)
+✔ a failed mise run check prevents both commit and push and leaves original HEAD intact (58.75389ms)
+✔ source or generated output mutation during installation/check cannot receive a PASS receipt (206.586191ms)
+✔ a generated directory symlink is rejected before host reads or publishes its target (48.610815ms)
+✔ tracked files hidden under runtime/generated exclusions cannot bypass complete candidate checking (150.529521ms)
+✔ a full-tree substitution or stale PR/remote HEAD prevents commit and push (235.474157ms)
+✔ without explicit linked issues the correction commit has no fictitious Refs #4 (59.895443ms)
+✔ receipts are bound to the immutable original proposal, full candidate, run and attempt (42.924074ms)
+✔ artifact origin and digest are checked against GitHub metadata rather than an artifact claim (0.723117ms)
+✔ only the expected successful workflow jobs and steps from the exact attempt are accepted (1.287736ms)
+✔ candidate execution receives only explicit container data mounts and no credentials or runner access (0.459615ms)
+✔ trusted workflow keeps candidate checking separate and binds artifact IDs/digests through job outputs (6.291699ms)
+✔ release PR is readable by independent review but never automatically corrected (1.326437ms)
+✔ review release allowance retains repository, fork, state, protected branch and SHA guards (1.534098ms)
+✔ explicit verified linked tickets create distinct sorted Conventional Commit Refs (1.515394ms)
+✔ missing or empty linkage never turns prose, closing keywords or #4 into a commit reference (0.28939ms)
+✔ ambiguous, malformed or foreign linkage is rejected before any issue lookup (2.060082ms)
+✔ linked issue lookup must prove an existing ordinary issue in the target repository (0.98214ms)
+✔ both PR comment surfaces accept trusted explicit commands independent of ready labels (2.144236ms)
+✔ automatic review starts only for its explicit lifecycle events and ready PRs (0.290719ms)
+✔ live PR policy rejects forks, main, protected work branches, wrong repo and changed HEAD (0.866303ms)
+✔ actual prepare command leaves allowed=false for a fork and records current PR head for inline fixes (78.577706ms)
+✔ the review prompt transmits trusted REVIEW.md, exact SHA and evidence without implementation authority (0.547033ms)
+✔ model environment strips GitHub/OIDC credentials, inherited config and executable hooks (0.31819ms)
+✔ actual model orchestration uses a fresh isolated CLI, stdin prompt and JSONL (harmless stand-in, no model) (103.746985ms)
+✔ unsafe edit aliases, traversal, workflow files and generated files are rejected before writing (0.676295ms)
+✔ actual edit application checks source hashes and rejects existing and dangling symlinks (2.070529ms)
+✔ workflow budget gate precedes setup/model, and only the permitted model step has its key (0.909567ms)
+✔ PR request workflows only signal untrusted data without checkout, model, OIDC or write rights (0.520634ms)
+✔ actual inline request filter emits identifiers only and rejects bots, forks and noncommands without a model (188.976851ms)
+✔ actual forwarded review preflight validates source run and rejects stale, fork or replayed metadata (369.356534ms)
+✔ actual forwarded Release Please PR is eligible for independent review but not inline correction (151.486327ms)
+✔ release review wait and publication preserve review policy and the exact checked head SHA (91.977945ms)
+✔ actual inline forwarding verifies bounded ZIP identifiers against live REST comment and current PR (1059.904758ms)
+✔ publication is tied to reviewed SHA and explicit non-force destination with hooks disabled (0.337626ms)
+✔ workflow gates every checkout, setup and model step before exposing credentials (1.424279ms)
+✔ trusted runtime, auth and concurrency match the manual workflow (1.313758ms)
+✔ trusted User, ordinary issue without /oc (30.689883ms)
+✔ same trusted User, ready-for-agent (33.521708ms)
+✔ same trusted User, ready-for-human (31.676846ms)
+✔ bot (29.190728ms)
+✔ trusted login with Bot account type (28.202769ms)
+✔ untrusted User despite trusted sender (29.295138ms)
+✔ another repository (31.180517ms)
+✔ label added later is not an opened event (33.856125ms)
+✔ issue_comment is not an issues event (28.64447ms)
+✔ PR is not an ordinary issue (28.878678ms)
+✔ missing author (30.090899ms)
+✔ shell and expression syntax in issue text remains data (33.032565ms)
+ℹ tests 65
+ℹ suites 0
+ℹ pass 65
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2255.040866
+[38;5;14m[check][0m [1m$ npm run generate:openapi[0m
+
+> generate:openapi
+> tsp compile api
+
+TypeSpec compiler v1.18.0
+
+- Compiling...
+[32m✔[39m Compiling
+- Running @typespec/openapi3...
+[32m✔[39m @typespec/openapi3 [32m28ms[39m [2mapi/generated/[22m
+
+Compilation completed successfully.
+
+[38;5;14m[check][0m [1m$ npm run generate:sdk[0m
+
+> generate:sdk
+> openapi-ts -i api/generated/openapi.yaml -o api/generated/sdk -p @hey-api/client-fetch @hey-api/typescript @hey-api/sdk fastify
+
+[90m@hey-api/openapi-ts v0.99.0[39m
+
+[90m[Job 1] [39m[90m~[39m [36mGenerating...[39m
+[90m[Job 1] [39m[36m  [1] [39mapi/generated/openapi.yaml
+[90m[Job 1] [39m[32m✓[39m [96m./api/generated/sdk[39m [90m· 5 files · 74ms[39m
+[38;5;14m[check][0m [1m$ npm run lint[0m
+
+> lint
+> oxlint --deny-warnings --react-plugin --vitest-plugin server frontend
+
+[38;5;14m[check][0m [1m$ npm run typecheck[0m
+
+> typecheck
+> tsc --noEmit && tsc -b frontend
+
+[38;5;14m[check][0m [1m$ npm test[0m
+
+> test
+> vitest run
+
+
+ RUN  v5.1.0 /home/runner/work/ai-for-developers-project-387/ai-for-developers-project-387
+
+
+ Test Files  7 passed (7)
+      Tests  36 passed (36)
+   Start at  20:52:40
+   Duration  1.28s (tests 52%, import 38%, transform 9%, worker 1%)
+
+[38;5;14m[check][0m [1m$ npm exec -- playwright test --reporter=list[0m
+
+Running 4 tests using 2 workers
+
+  ✓  1 browser/booking-retry.browser.ts:5:1 › гость восстанавливает подтверждение после потери ответа и сдвига окна записи (1.7s)
+  ✓  2 browser/booking-conflict.browser.ts:6:1 › гость выбирает другое время после конфликта записи (1.8s)
+  ✓  3 browser/topic-owner.browser.ts:36:1 › owner reads full saved topic and legacy fallback on a narrow screen after refresh and reload (1.2s)
+  ✓  4 browser/upcoming-meetings.browser.ts:8:1 › после записи через главную владелец видит встречу и может обновить список (1.7s)
+
+  4 passed (4.5s)
