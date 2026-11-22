@@ -70,6 +70,13 @@ function issueSnapshot(issue, repository) {
   return { number: issue.number, title: issue.title, body: issue.body ?? '', state: issue.state, url: issue.html_url };
 }
 
+function isPublisherIssue(issue) {
+  // GitHub supplies author identity independently of the issue body. A public,
+  // deterministic marker alone can be copied by any issue author and must not
+  // grant authority to suppress a newly observed finding.
+  return issue.user?.login === 'github-actions[bot]' && issue.user.type === 'Bot';
+}
+
 export async function listAuditIssues({ repository, token, fetchImpl = fetch }) {
   assertRepository(repository);
   const issues = [];
@@ -83,9 +90,9 @@ export async function listAuditIssues({ repository, token, fetchImpl = fetch }) 
       assert(issue && typeof issue === 'object', 'Malformed GitHub issue response');
       if (issue.pull_request) continue;
       const snapshot = issueSnapshot(issue, repository);
-      // The trusted marker is always the first line. Quoted response/issue text
-      // elsewhere in a body cannot impersonate another audit finding.
-      if (MARKER.test(snapshot.body)) issues.push(snapshot);
+      // Require both the GITHUB_TOKEN publisher's REST author identity and its
+      // first-line marker. User text and model output cannot supply authority.
+      if (isPublisherIssue(issue) && MARKER.test(snapshot.body)) issues.push(snapshot);
     }
     if (batch.length < 100) return issues;
   }
@@ -169,6 +176,7 @@ export async function publishFindings({ meta, findings, directory, token, fetchI
       });
       assert(!response?.pull_request, 'Issue creation returned a pull request');
       const created = issueSnapshot(response, meta.repository);
+      assert(isPublisherIssue(response), 'Created issue author does not match the GITHUB_TOKEN publisher');
       assert(MARKER.exec(created.body)?.[1] === key, 'Created issue is missing the audit marker');
       result.issues.push({ id: finding.id, key, action: 'created', number: created.number, url: created.url, state: created.state });
       existing.push(created);

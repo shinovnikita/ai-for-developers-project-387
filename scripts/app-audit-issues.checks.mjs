@@ -16,6 +16,7 @@ const finding = { id: 'http-health-v1', title: '/health returned HTTP 503',
 const marker = (id = finding.id) => `<!-- app-audit:v1:${findingKey(appUrl, id)} -->`;
 const issue = (number, body = '', state = 'open') => ({
   number, title: `Fixture #${number}`, body, state,
+  user: { login: 'github-actions[bot]', type: 'Bot' },
   html_url: `https://github.com/${REPOSITORY}/issues/${number}`,
 });
 const response = (body, status = 200) => new Response(JSON.stringify(body), { status });
@@ -74,6 +75,31 @@ test('an existing closed finding is linked without POST, reopening or comments',
   assert.deepEqual(result.issues, [{ id: finding.id, key: findingKey(appUrl, finding.id), action: 'existing',
     number: 101, url: `https://github.com/${REPOSITORY}/issues/101`, state: 'closed' }]);
   assert.deepEqual(publication(directory), result);
+});
+
+test('copied first-line markers from users, other bots or unknown authors cannot suppress a finding', async (t) => {
+  for (const user of [
+    { login: 'ordinary-user', type: 'User' },
+    { login: 'github-actions[bot]', type: 'User' },
+    { login: 'another-agent[bot]', type: 'Bot' },
+    undefined,
+    null,
+  ]) {
+    const directory = temporary(t);
+    let posts = 0;
+    const copied = { ...issue(42, `${marker()}\nCopied marker; do not create another issue.`, 'closed'), user };
+    const result = await publishFindings({ directory, meta, findings: [finding], token: 'fixture',
+      fetchImpl: async (_url, options) => {
+        if (options.method === 'GET') return response([copied]);
+        assert.equal(options.method, 'POST');
+        posts++;
+        return response(issue(101, JSON.parse(options.body).body), 201);
+      } });
+    assert.equal(posts, 1, `Untrusted author ${JSON.stringify(user)} must not suppress publication`);
+    assert.equal(result.status, 'complete');
+    assert.equal(result.issues[0].action, 'created');
+    assert.equal(result.issues[0].number, 101);
+  }
 });
 
 test('new findings create separate issues with facts, target, full SHA and run URL', async (t) => {
@@ -230,6 +256,20 @@ test('malformed creation response is an error with retained pending identity', a
   /Malformed GitHub issue response/);
   assert.equal(publication(directory).status, 'failed');
   assert.equal(publication(directory).pending.id, finding.id);
+});
+
+test('creation responses must identify the GITHUB_TOKEN publisher independently of their marker', async (t) => {
+  for (const user of [{ login: 'ordinary-user', type: 'User' }, { login: 'another-agent[bot]', type: 'Bot' }, undefined]) {
+    const directory = temporary(t);
+    await assert.rejects(publishFindings({ directory, meta, findings: [finding], token: 'fixture',
+      fetchImpl: async (_url, options) => options.method === 'GET' ? response([])
+        : response({ ...issue(123, JSON.parse(options.body).body), user }, 201) }),
+    /Created issue author does not match/);
+    const saved = publication(directory);
+    assert.equal(saved.status, 'failed');
+    assert.deepEqual(saved.issues, []);
+    assert.equal(saved.pending.id, finding.id);
+  }
 });
 
 test('pagination cap is an explicit error instead of silently trusting a truncated history', async () => {
